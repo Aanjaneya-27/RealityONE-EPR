@@ -66,8 +66,7 @@ function LoginView({ onSwitch }) {
     setApiError("");
     
     try {
-      // API CALL TO BACKEND
-      const response = await axios.post("http://localhost:5000/api/auth/login", {
+      const response = await axios.post("https://realityone-epr.onrender.com/api/auth/login", {
         email: email,
         password: password,
       });
