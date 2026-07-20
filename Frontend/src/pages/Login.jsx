@@ -275,7 +275,7 @@ function RegisterView({ onSwitch }) {
 
       if (response.data.success) {
         alert("Account Created! Please login.");
-        onSwitch(); // Switch to login view
+        onSwitch(); 
       }
     } catch (err) {
       setApiError(err.response?.data?.message || "Registration failed");
@@ -442,7 +442,6 @@ function RegisterView({ onSwitch }) {
             )}
           </div>
 
-          {/* ADDED: Backend API Error Message */}
           {apiError && (
             <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-center">
               <p className="text-[12px] text-red-600 font-semibold">{apiError}</p>

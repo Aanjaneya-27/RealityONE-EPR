@@ -201,7 +201,6 @@ export default function CRMLeadForm() {
         .toast-anim { animation: slideIn 0.25s ease-out; }
       `}</style>
 
-      {/* Toast */}
       {toast && (
         <div
           className={`toast-anim fixed top-6 left-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-lg shadow-lg text-white text-[13.5px] font-semibold ${
@@ -221,7 +220,6 @@ export default function CRMLeadForm() {
         </div>
       )}
 
-      {/* Reset confirm modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center px-4">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
@@ -250,7 +248,6 @@ export default function CRMLeadForm() {
       )}
 
       <div className="max-w-6xl mx-auto px-6 py-10 font-body">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 text-[12.5px] text-[#444651]/60 font-medium mb-2">
@@ -292,9 +289,7 @@ export default function CRMLeadForm() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT COLUMN */}
           <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Contact Info */}
             <SectionCard
               icon={User}
               title="Contact Information"
@@ -478,7 +473,6 @@ export default function CRMLeadForm() {
             </SectionCard>
           </div>
 
-          {/* RIGHT COLUMN */}
           <div className="flex flex-col gap-6">
             {/* Lead Stage */}
             <SectionCard icon={Tag} title="Lead Status">
@@ -529,7 +523,6 @@ export default function CRMLeadForm() {
               </div>
             </SectionCard>
 
-            {/* Assigned Agent */}
             <SectionCard icon={User} title="Assigned Agent">
               <div className="flex flex-col gap-2">
                 {AGENTS.map((a) => (
@@ -556,7 +549,6 @@ export default function CRMLeadForm() {
               </div>
             </SectionCard>
 
-            {/* Tags */}
             <SectionCard icon={Tag} title="Tags">
               <div className="flex flex-wrap gap-2 mb-4">
                 {tags.length === 0 && (

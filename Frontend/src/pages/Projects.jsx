@@ -211,9 +211,7 @@ const LedgerPage = ({ projectName, onBack }) => {
   );
 };
 
-/* ---------------------------------------------------------
-   Small Helper Components
---------------------------------------------------------- */
+
 const MetricCard = ({ icon: Icon, iconBg, iconColor, tag, tagBg, tagColor, label, value }) => (
   <div
     className="p-4 rounded-[14px] border"
@@ -353,9 +351,7 @@ const StatBox = ({ label, value, sub, subColor }) => (
   </div>
 );
 
-/* ---------------------------------------------------------
-   Project Card Component
---------------------------------------------------------- */
+
 const ProjectCard = ({
   imageUrl, badgeLabel, badgeColor, title, location, completion, milestonePercent, accent, steps,
   budgetSpent, budgetTotal, budgetVarianceLabel, budgetVarianceColor, budgetFillPercent, budgetOverPercent,
@@ -368,7 +364,6 @@ const ProjectCard = ({
       boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)",
     }}
   >
-    {/* Image Header */}
     <div className="relative h-56 overflow-hidden">
       <div
         className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-700"
@@ -397,7 +392,6 @@ const ProjectCard = ({
     </div>
 
     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* Progress & Milestones */}
       <div>
         <div className="flex justify-between items-center mb-2">
           <h4 className="text-[13px] font-bold uppercase tracking-wide" style={{ color: c.onSurface }}>
@@ -417,7 +411,6 @@ const ProjectCard = ({
         </div>
       </div>
 
-      {/* Financials & Inventory */}
       <div className="space-y-6">
         <div>
           <h4 className="text-[11px] uppercase tracking-widest font-bold mb-3" style={{ color: c.onSurfaceVariant }}>
@@ -461,7 +454,6 @@ const ProjectCard = ({
       </div>
     </div>
 
-    {/* Footer Area */}
     <div
       className="px-6 py-4 border-t flex justify-between items-center"
       style={{ borderColor: c.outlineVariant, background: c.surfaceContainerLowest }}
@@ -494,9 +486,7 @@ const ProjectCard = ({
   </div>
 );
 
-/* ---------------------------------------------------------
-   Main Page Component (Projects) - Navbar Removed!
---------------------------------------------------------- */
+
 export default function Projects() {
   const [view, setView] = useState("projects"); // "projects" | "ledger"
   const [activeProject, setActiveProject] = useState(null);
@@ -534,10 +524,7 @@ export default function Projects() {
   return (
     <div className="min-h-screen w-full" style={{ background: c.background, color: c.onSurface, ...bodyFont }}>
       
-      {/* MAIN CONTENT AREA */}
-      <main className="p-6 max-w-[1600px] mx-auto w-full">
-        
-        {/* Dashboard Header */}
+      <main className="p-6 max-w-[1600px] mx-auto w-full">        
         <div className="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
           <div>
             <p className="font-bold text-[13px] tracking-widest uppercase mb-1" style={{ color: c.primary }}>
@@ -565,7 +552,6 @@ export default function Projects() {
           </div>
         </div>
 
-        {/* Key Metrics Bento */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <MetricCard
             icon={Building}
@@ -609,7 +595,6 @@ export default function Projects() {
           />
         </div>
 
-        {/* Project Cards Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <ProjectCard
             imageUrl="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop"

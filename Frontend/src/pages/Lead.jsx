@@ -242,11 +242,8 @@ useEffect(() => {
 
 
   return (
-    // Yahan WAPAS FIXED LAYOUT lga diya gaya hai, taaki outer screen scroll na ho.
     <div className="fixed left-[260px] top-[64px] right-0 bottom-0 flex flex-col bg-[#faf8ff] p-6 overflow-hidden select-none">
-      
-      {/* 1. FIXED TOP HEADER (flex-shrink-0 restricts it from scrolling up) */}
-      <div className="w-full flex-shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#e3e2e9] mb-4">
+            <div className="w-full flex-shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#e3e2e9] mb-4">
         <div>
           <h2 className="text-xl font-bold text-[#1a1b21] tracking-tight">Lead Pipeline</h2>
           <div className="flex items-center gap-2 mt-1 text-xs font-semibold">

@@ -172,9 +172,6 @@ const INITIAL_CUSTOMERS = [
 const money = (n) => "$" + Number(n || 0).toLocaleString("en-US");
 const uid = () => "CUST-" + Math.floor(90000 + Math.random() * 9999);
 
-/* ---------------------------------------------------------------
-   Icon helper (Material Symbols Outlined via Google Fonts CDN)
------------------------------------------------------------------ */
 function Icon({ name, className = "", filled = false, style = {} }) {
   return (
     <span
@@ -189,10 +186,7 @@ function Icon({ name, className = "", filled = false, style = {} }) {
   );
 }
 
-/* ---------------------------------------------------------------
-   Toast notifications (stand-in for real side effects: calls,
-   sms, emails, downloads etc. that can't truly happen in-browser)
------------------------------------------------------------------ */
+
 function ToastStack({ toasts }) {
   return (
     <div className="fixed bottom-6 left-6 z-[200] space-y-2 pointer-events-none">
@@ -210,9 +204,6 @@ function ToastStack({ toasts }) {
   );
 }
 
-/* ---------------------------------------------------------------
-   Generic Modal
------------------------------------------------------------------ */
 function Modal({ title, onClose, children, footer, wide }) {
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -259,9 +250,7 @@ function Field({ label, children }) {
 const inputCls = "w-full rounded-xl text-sm px-3 py-2 outline-none focus:ring-2";
 const inputStyle = { background: COLORS.surfaceContainerLow, border: `1px solid ${COLORS.outlineVariant}` };
 
-/* ---------------------------------------------------------------
-   Add / Quick-edit Customer Modal
------------------------------------------------------------------ */
+
 function CustomerFormModal({ initial, onClose, onSave }) {
   const [form, setForm] = useState(
     initial || {
@@ -339,9 +328,7 @@ function CustomerFormModal({ initial, onClose, onSave }) {
   );
 }
 
-/* ---------------------------------------------------------------
-   Full Profile Edit Modal (used inside Customer Profile view)
------------------------------------------------------------------ */
+
 function ProfileEditModal({ customer, onClose, onSave }) {
   const [form, setForm] = useState({
     phone: customer.phone,
@@ -407,9 +394,7 @@ function downloadCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-/* ================================================================
-   CUSTOMER DATABASE (list) VIEW
-================================================================= */
+
 function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast }) {
   const [fabOpen, setFabOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -567,7 +552,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative w-full max-w-md mb-6">
           <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.outline }} />
           <input
@@ -582,7 +566,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
           />
         </div>
 
-        {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {[
             { icon: "group", label: "Total Customers", value: customers.length.toLocaleString(), bg: "rgba(37,68,149,0.1)", fg: COLORS.primaryContainer },
@@ -622,7 +605,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
           ))}
         </div>
 
-        {/* Filters */}
         <div className="p-6 rounded-2xl mb-6" style={{ background: COLORS.surfaceContainerLowest, border: `1px solid ${COLORS.outlineVariant}` }}>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px]">
@@ -691,7 +673,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
           </div>
         </div>
 
-        {/* Table */}
         <div className="rounded-2xl shadow-sm overflow-hidden bg-white" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
           <div
             className="px-6 py-4 flex justify-between items-center flex-wrap gap-3"
@@ -894,7 +875,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
             </table>
           </div>
 
-          {/* Pagination */}
           <div
             className="px-6 py-4 flex justify-between items-center flex-wrap gap-3"
             style={{ background: COLORS.surfaceContainerLow, borderTop: `1px solid ${COLORS.outlineVariant}` }}
@@ -936,7 +916,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
           </div>
         </div>
 
-        {/* AI Insights */}
         <div className="mt-12">
           <div className="flex items-center gap-3 mb-6">
             <Icon name="smart_toy" filled style={{ color: COLORS.primary }} />
@@ -988,7 +967,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
         </div>
       </div>
 
-      {/* Floating Action Hub */}
       <div className="fixed bottom-8 right-8 z-50" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => setFabOpen((o) => !o)}
@@ -1028,9 +1006,7 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   );
 }
 
-/* ================================================================
-   CUSTOMER PROFILE VIEW
-================================================================= */
+
 function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
   const [tab, setTab] = useState("timeline");
   const [showEdit, setShowEdit] = useState(false);
@@ -1061,7 +1037,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
       </div>
 
       <div className="max-w-[1600px] mx-auto p-8">
-        {/* Profile Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div className="flex items-center gap-6">
             <div className="relative">
@@ -1130,7 +1105,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
           </div>
         </div>
 
-        {/* Dashboard Grid */}
         <div className="grid grid-cols-12 gap-6">
           {/* Main Column */}
           <div className="col-span-12 lg:col-span-8 space-y-6">
@@ -1151,7 +1125,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
               ))}
             </div>
 
-            {/* Tab Content */}
             <div className="min-h-[500px]">
               {tab === "timeline" && (
                 <div className="rounded-xl overflow-hidden bg-white" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
@@ -1283,7 +1256,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
             </div>
           </div>
 
-          {/* Sidebar */}
           <aside className="col-span-12 lg:col-span-4 space-y-6">
             {/* Personal Details */}
             <div className="bg-white p-6 rounded-2xl shadow-sm" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
@@ -1326,7 +1298,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
               </div>
             </div>
 
-            {/* Nominee */}
             <div className="p-6 rounded-2xl" style={{ background: "rgba(1,44,126,0.05)", border: "1px solid rgba(1,44,126,0.1)" }}>
               <div className="flex items-center gap-3 mb-4">
                 <Icon name="family_history" style={{ color: COLORS.primary }} />
@@ -1348,7 +1319,6 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
               </div>
             </div>
 
-            {/* Agent */}
             <div className="bg-white p-6 rounded-2xl" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
               <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: COLORS.onSurfaceVariant }}>
                 Assigned Agent
@@ -1389,9 +1359,7 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
   );
 }
 
-/* ================================================================
-   ROOT APP — switches between Database and Profile
-================================================================= */
+
 export default function RealtyOneCRM() {
   const [view, setView] = useState("database");
   const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);

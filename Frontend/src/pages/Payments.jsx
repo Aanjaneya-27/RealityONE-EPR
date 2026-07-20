@@ -168,9 +168,7 @@ export default function Payments() {
           </div>
         </div>
 
-        {/* Bento Grid Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Main Stat: Total Sales */}
           <div
             className="md:col-span-2 p-8 rounded-[24px] text-white flex flex-col justify-between shadow-lg relative overflow-hidden group"
             style={{
@@ -201,7 +199,6 @@ export default function Payments() {
             </div>
           </div>
 
-          {/* Upcoming Collections */}
           <div className="bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm flex flex-col justify-between">
             <div>
               <div
@@ -229,7 +226,6 @@ export default function Payments() {
             </div>
           </div>
 
-          {/* Overdue Payments */}
           <div className="bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm flex flex-col justify-between">
             <div>
               <div
@@ -256,7 +252,6 @@ export default function Payments() {
           </div>
         </div>
 
-        {/* Middle Section: Forecast and Recent Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Forecast Chart */}
           <div className="lg:col-span-2 bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm">
@@ -303,7 +298,6 @@ export default function Payments() {
             </div>
           </div>
 
-          {/* Recent Activity Feed */}
           <div className="bg-white p-6 rounded-[24px] border border-gray-200 shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <h4 className="font-display text-[20px] font-semibold text-[#1a1b21]">
@@ -344,7 +338,6 @@ export default function Payments() {
           </div>
         </div>
 
-        {/* Bottom Section: Detailed Transactions Table */}
         <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <h4 className="font-display text-[20px] font-semibold text-[#1a1b21]">

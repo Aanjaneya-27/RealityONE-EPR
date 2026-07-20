@@ -566,7 +566,6 @@ export default function Bookings() {
                 </StepCard>
               )}
 
-              {/* Nav buttons */}
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
                 {step === 1 ? (
                   <button className="flex items-center gap-2 px-6 py-3 text-slate-400 font-bold hover:text-[#012c7e] transition-colors">
@@ -596,7 +595,6 @@ export default function Bookings() {
               </div>
             </div>
 
-            {/* Right column - WRAPPED IN A SINGLE STICKY CONTAINER */}
             <div className="lg:col-span-4">
               <div className="sticky top-24 self-start space-y-6">
                 
@@ -629,7 +627,6 @@ export default function Bookings() {
                   </div>
                 </div>
 
-                {/* 2. AI Guide Widget */}
                 <div className="bg-white border border-[#c4c6d3] rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-[#faf8ff] text-[#012c7e] border border-[#c4c6d3] flex items-center justify-center">
@@ -657,7 +654,6 @@ export default function Bookings() {
         </main>
       </div>
 
-      {/* AI Guide Modal Overlay */}
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -703,7 +699,6 @@ export default function Bookings() {
         </div>
       )}
 
-      {/* Toast */}
       <div
         className={`fixed bottom-6 right-6 flex items-center gap-3 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl transition-transform duration-300 z-50 ${
           toast ? "translate-y-0" : "translate-y-24 pointer-events-none"
