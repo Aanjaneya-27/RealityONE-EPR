@@ -214,8 +214,7 @@ const inputCls = "w-full rounded-xl text-sm px-3 py-2 outline-none focus:ring-2"
 const inputStyle = { background: COLORS.surfaceContainerLow, border: `1px solid ${COLORS.outlineVariant}` };
 
 
-function CustomerFormModal({ initial, onClose, onSave }) {
-  // 🔥 PHOTO FIELD ADDED HERE 🔥
+function CustomerFormModal({ initial, onClose, onSave }) 
   const [form, setForm] = useState(
     initial || { name: "", email: "", project: "Skyline Residences", units: "01", collectionValue: "", status: "Interested", phone: "", avatar: "" }
   );
@@ -338,7 +337,7 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   const [editTarget, setEditTarget] = useState(null);
   
   const [page, setPage] = useState(1);
-  const pageSize = 4; // 10 pages mapping (40/4 = 10)
+  const pageSize = 4; 
 
   const inValueRange = (val, range) => {
     if (range === "Any Range") return true;
@@ -390,14 +389,12 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   };
 
 const handleAddCustomer = async (form) => {
-    // 1. Agar user ne photo nahi daali, toh default avatar generate karo
     const finalAvatar = form.avatar && form.avatar.trim() !== "" 
       ? form.avatar 
       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.name)}&backgroundColor=012c7e`;
 
-    // 2. Data ko ek object mein set karo
-    const newCustomer = {
-      customer_id: uid(), // 'CUST-XXXXX' Generate hoke backend jayega
+  const newCustomer = {
+      customer_id: uid(), 
       name: form.name,
       email: form.email,
       phone: form.phone || "—",
@@ -410,9 +407,7 @@ const handleAddCustomer = async (form) => {
 
     try {
         await axios.post("https://realityone-epr.onrender.com/api/customers/create", newCustomer);
-        
-        // 4. Data save hone ke baad UI (Table) ko update karo aur Form band kar do
-        setCustomers((prev) => [newCustomer, ...prev]);
+                setCustomers((prev) => [newCustomer, ...prev]);
         setShowAddModal(false);
         addToast(`${form.name} added successfully`, "person_add");
     } catch (error) {
@@ -434,7 +429,6 @@ const handleAddCustomer = async (form) => {
   return (
     <div style={{ background: COLORS.background, color: COLORS.onSurface }} className="min-h-screen font-sans" onClick={() => { setOpenMenuId(null); setFabOpen(false); }}>
       <div className="p-8 max-w-[1600px] mx-auto">
-        {/* Header */}
         <div className="flex justify-between items-end mb-8 flex-wrap gap-4">
           <div>
             <h2 className="text-[36px] leading-[44px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Customer Database</h2>
@@ -447,7 +441,6 @@ const handleAddCustomer = async (form) => {
           </div>
         </div>
 
-        {/* Search Bar */}
         <div className="relative w-full max-w-md mb-6">
           <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.outline }} />
           <input
@@ -459,7 +452,6 @@ const handleAddCustomer = async (form) => {
           />
         </div>
 
-        {/* Filters */}
         <div className="p-6 rounded-2xl mb-6 shadow-sm" style={{ background: COLORS.surfaceContainerLowest, border: `1px solid ${COLORS.outlineVariant}` }}>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px]">
@@ -488,7 +480,6 @@ const handleAddCustomer = async (form) => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="rounded-2xl shadow-sm overflow-hidden bg-white" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
           <div className="overflow-x-auto min-h-[400px]">
             <table className="w-full text-left border-collapse">
@@ -522,7 +513,6 @@ const handleAddCustomer = async (form) => {
                     <td className="py-4 px-3"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${STATUS_STYLES[c.status]}`}>{c.status}</span></td>
                     <td className="py-4 px-3 text-[12px]" style={{ color: COLORS.onSurfaceVariant }}>{c.lastActivity}</td>
                     
-                    {/* Action Menu (3 Dots) */}
                     <td className="py-4 pl-3 pr-6 text-right relative" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)} className="p-2 transition-opacity rounded-lg hover:bg-black/5" style={{ opacity: openMenuId === c.id ? 1 : 0.4 }}>
                         <Icon name="more_vert" className="!text-[20px]" />
@@ -551,7 +541,6 @@ const handleAddCustomer = async (form) => {
             </table>
           </div>
 
-          {/* Pagination */}
           <div className="px-6 py-4 flex justify-between items-center flex-wrap gap-3" style={{ background: COLORS.surfaceContainerLow, borderTop: `1px solid ${COLORS.outlineVariant}` }}>
             <span className="text-sm font-medium" style={{ color: COLORS.onSurfaceVariant }}>Showing <b>{filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)}</b> of {filtered.length}</span>
             <div className="flex gap-2 items-center">
