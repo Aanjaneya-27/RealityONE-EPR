@@ -1,9 +1,7 @@
-
-
 import { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import axios from "axios"; // 🔥 API ki jagah wapas axios laga diya hai 🔥
+import axios from "axios"; 
 
 export default function Navbar() {
   const location = useLocation();
@@ -42,7 +40,7 @@ export default function Navbar() {
     setIsAiLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/ai/ask", { query: queryText });
+      const res = await axios.post("https://realityone-epr.onrender.com/api/ai/ask", { query: queryText });
       
       setMessages([...newMessages, { sender: "ai", text: res.data.answer }]);
     } catch (error) {

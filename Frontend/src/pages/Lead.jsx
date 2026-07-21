@@ -65,7 +65,7 @@ useEffect(() => {
 
   const fetchLeads = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/leads/all");
+      const res = await axios.get("https://realityone-epr.onrender.com/api/leads/all");
 
       if (!isMounted) return;
 
