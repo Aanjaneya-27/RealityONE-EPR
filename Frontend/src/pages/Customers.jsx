@@ -214,7 +214,7 @@ const inputCls = "w-full rounded-xl text-sm px-3 py-2 outline-none focus:ring-2"
 const inputStyle = { background: COLORS.surfaceContainerLow, border: `1px solid ${COLORS.outlineVariant}` };
 
 
-function CustomerFormModal({ initial, onClose, onSave }) 
+function CustomerFormModal({ initial, onClose, onSave }) {
   const [form, setForm] = useState(
     initial || { name: "", email: "", project: "Skyline Residences", units: "01", collectionValue: "", status: "Interested", phone: "", avatar: "" }
   );
