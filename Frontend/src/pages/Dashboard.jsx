@@ -70,7 +70,7 @@ export default function Dashboard() {
     setChatInput("");
 
     try {
-      const response = await fetch("https://realityone-epr.onrender.com/api/ask", {
+      const response = await fetch("https://realityone-epr.onrender.com/api/ai/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
