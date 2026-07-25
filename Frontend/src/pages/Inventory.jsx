@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Search,
   Filter,
@@ -31,6 +31,8 @@ import {
   Mail,
   Share2,
   Check,
+  X,
+  Move,
 } from "lucide-react";
 
 const TABS = ["Villas", "Apartments", "Duplexes"];
@@ -474,8 +476,6 @@ const PROJECTS = {
 
 const PROJECT_NAMES = Object.keys(PROJECTS);
 
-// Given a property, find which project it belongs to (used so Property
-// Details always shows that project's own map, not a fixed one).
 function findProjectForProperty(property) {
   if (!property) return null;
   for (const name of PROJECT_NAMES) {
@@ -512,9 +512,6 @@ const SPECS = [
   { label: "PLC", value: "Prime", sub: "Ocean + Marina View" },
 ];
 
-// ---------------------------------------------------------------------------
-// Status pill used on property cards
-// ---------------------------------------------------------------------------
 function StatusBadge({ status }) {
   const map = {
     Available: "bg-[#16a34a]", // emerald-600 replacement
@@ -605,7 +602,6 @@ function InventoryView({ onViewDetails }) {
 
   const currentProject = PROJECTS[activeProject];
 
-  // Which tabs make sense for this project (e.g. Horizon Heights only has Apartments)
   const availableTypes = useMemo(
     () => Array.from(new Set(currentProject.properties.map((p) => p.type))),
     [currentProject]
@@ -613,10 +609,6 @@ function InventoryView({ onViewDetails }) {
   const tabsForProject = TABS.filter((t) => availableTypes.includes(TAB_TYPE_MAP[t]));
 
   const [activeTab, setActiveTab] = useState(tabsForProject[0] || TABS[0]);
-
-  // Reset the active tab when the project changes — done during render (React's
-  // recommended pattern for "adjusting state when a prop/value changes"),
-  // not inside an effect, so it doesn't trigger a cascading setState-in-effect render.
   const [lastProject, setLastProject] = useState(activeProject);
   if (activeProject !== lastProject) {
     setLastProject(activeProject);
@@ -669,8 +661,6 @@ function InventoryView({ onViewDetails }) {
                 LIVE INTERACTIVE VIEW
               </span>
             </div>
-
-            {/* Project filter / switcher */}
             <div className="absolute top-6 right-6 z-10">
               <button
                 onClick={() => setProjectMenuOpen((o) => !o)}
@@ -841,7 +831,6 @@ function InventoryView({ onViewDetails }) {
           </div>
         </div>
 
-        {/* Inventory List */}
         <section className="mt-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#c4c6d3] mb-8 gap-4">
             <div className="flex gap-6 w-full md:w-auto overflow-x-auto hide-scrollbar">
@@ -901,10 +890,29 @@ function InventoryView({ onViewDetails }) {
 function DetailsView({ property, onBack, mapImage }) {
   const [activeThumb, setActiveThumb] = useState(0);
   const [showActionBar, setShowActionBar] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourIndex, setTourIndex] = useState(0);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const booked = property?.status === "Booked";
 
-  // Reveal the floating action bar only once the person has scrolled past the
-  // photo gallery, instead of showing it immediately on page load.
+  const PAN_LIMIT = 12; 
+
+  const startDrag = (clientX, clientY) => {
+    dragRef.current = { active: true, startX: clientX, startY: clientY, originX: pan.x, originY: pan.y };
+  };
+  const moveDrag = (clientX, clientY) => {
+    if (!dragRef.current.active) return;
+    const dxPct = ((clientX - dragRef.current.startX) / window.innerWidth) * 100;
+    const dyPct = ((clientY - dragRef.current.startY) / window.innerHeight) * 100;
+    const nx = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, dragRef.current.originX + dxPct * 1.4));
+    const ny = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, dragRef.current.originY + dyPct * 1.4));
+    setPan({ x: nx, y: ny });
+  };
+  const endDrag = () => {
+    dragRef.current.active = false;
+  };
+
   useEffect(() => {
     const handleScroll = () => setShowActionBar(window.scrollY > 480);
     handleScroll();
@@ -917,11 +925,12 @@ function DetailsView({ property, onBack, mapImage }) {
   // Index 0 = the property's own exterior/hero shot; 1-4 = kitchen, bedroom, balcony, bathroom.
   const galleryImages = [property?.image || fallbackImg, ...interiors];
   const activeImage = galleryImages[activeThumb] || galleryImages[0];
+  const roomLabels = ["Exterior", ...THUMBS.map((t) => t.label)];
+  const currentRoomImage = galleryImages[tourIndex] || galleryImages[0];
 
   return (
     <div className="bg-[#faf8ff] text-[#1a1b21] min-h-screen font-sans pb-28">
       <main className="w-full max-w-[2000px] mx-auto p-4 sm:p-8 lg:p-12">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
             <div className="flex items-center gap-2 text-[#444651]/80 text-xs font-bold uppercase tracking-wider mb-2">
@@ -969,7 +978,6 @@ function DetailsView({ property, onBack, mapImage }) {
           </div>
         </div>
 
-        {/* Bento Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* LEFT COLUMN */}
           <div className="lg:col-span-8 space-y-6">
@@ -999,9 +1007,16 @@ function DetailsView({ property, onBack, mapImage }) {
                   <span className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2">
                     <Camera size={16} /> {activeThumb + 1}/{galleryImages.length} Photos
                   </span>
-                  <span className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2 hover:bg-black/80 cursor-pointer">
+                  <button
+                    onClick={() => {
+                      setTourIndex(activeThumb);
+                      setPan({ x: 0, y: 0 });
+                      setTourOpen(true);
+                    }}
+                    className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2 hover:bg-black/80 cursor-pointer transition-colors"
+                  >
                     <RotateCw size={16} /> Virtual Tour
-                  </span>
+                  </button>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-5 gap-2">
@@ -1031,7 +1046,6 @@ function DetailsView({ property, onBack, mapImage }) {
               </div>
             </div>
 
-            {/* Specs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {SPECS.map((s) => (
                 <div key={s.label} className="bg-white p-5 rounded-2xl border border-[#c4c6d3] shadow-sm">
@@ -1044,7 +1058,6 @@ function DetailsView({ property, onBack, mapImage }) {
               ))}
             </div>
 
-            {/* Amenities */}
             <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#c4c6d3] shadow-sm">
               <h3 className="font-bold text-xl text-[#012c7e] mb-6" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Unit Features &amp; Amenities</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
@@ -1060,9 +1073,7 @@ function DetailsView({ property, onBack, mapImage }) {
             </div>
           </div>
 
-          {/* RIGHT COLUMN */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Pricing */}
             <div className="bg-[#012c7e] text-white p-6 sm:p-8 rounded-2xl border border-[#254495] shadow-xl relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
               <p className="text-[#a0b6ff] text-xs uppercase tracking-widest font-bold mb-2">Total Unit Value</p>
@@ -1099,7 +1110,6 @@ function DetailsView({ property, onBack, mapImage }) {
               </div>
             </div>
 
-            {/* Master Plan Thumb */}
             <div className="bg-white p-6 rounded-2xl border border-[#c4c6d3] shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-xs uppercase tracking-widest font-bold text-[#444651]">Master Plan</h4>
@@ -1127,7 +1137,6 @@ function DetailsView({ property, onBack, mapImage }) {
               </div>
             </div>
 
-            {/* Sales Contact */}
             <div className="bg-white p-6 rounded-2xl border border-[#c4c6d3] shadow-sm">
               <h4 className="text-xs uppercase tracking-widest font-bold text-[#444651] mb-4">Assigned Advisor</h4>
               <div className="flex items-center gap-4 mb-6">
@@ -1152,7 +1161,6 @@ function DetailsView({ property, onBack, mapImage }) {
         </div>
       </main>
 
-      {/* Floating Smart Action Bar — appears once you scroll past the gallery */}
       <div
         className={`fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 w-[92vw] sm:w-fit max-w-[95vw] bg-white/90 backdrop-blur-md border border-[#c4c6d3] px-4 sm:px-6 py-3 sm:py-4 rounded-2xl shadow-2xl z-[5] flex items-center justify-between sm:justify-start gap-4 sm:gap-8 transition-all duration-300 ${
           showActionBar ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"
@@ -1184,11 +1192,96 @@ function DetailsView({ property, onBack, mapImage }) {
           </button>
         </div>
       </div>
+
+      
+      {tourOpen && (
+        <div className="fixed inset-0 z-[999] bg-black select-none">
+          <div
+            className="absolute inset-0 overflow-hidden cursor-grab active:cursor-grabbing"
+            onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
+            onMouseMove={(e) => moveDrag(e.clientX, e.clientY)}
+            onMouseUp={endDrag}
+            onMouseLeave={endDrag}
+            onTouchStart={(e) => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchMove={(e) => moveDrag(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchEnd={endDrag}
+          >
+            <img
+              key={tourIndex}
+              src={currentRoomImage}
+              alt={roomLabels[tourIndex]}
+              draggable={false}
+              className="w-full h-full object-cover transition-transform duration-100 ease-out"
+              style={{ transform: `scale(1.22) translate(${pan.x}%, ${pan.y}%)` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none"></div>
+          </div>
+
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 sm:p-6">
+            <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/20">
+              <Move size={14} />
+              {property?.title || "Property"} — {roomLabels[tourIndex]} ({tourIndex + 1}/{galleryImages.length})
+            </div>
+            <button
+              onClick={() => setTourOpen(false)}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white border border-white/20 flex items-center justify-center hover:bg-black/70 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm text-white/90 px-4 py-2 rounded-full text-xs font-semibold animate-pulse">
+              <Move size={14} /> Drag to look around
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setTourIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+              setPan({ x: 0, y: 0 });
+            }}
+            className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            onClick={() => {
+              setTourIndex((i) => (i + 1) % galleryImages.length);
+              setPan({ x: 0, y: 0 });
+            }}
+            className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors"
+          >
+            <ChevronRight size={22} />
+          </button>
+
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 flex justify-center">
+            <div className="flex gap-2 sm:gap-3 bg-black/50 backdrop-blur-md p-2 rounded-2xl border border-white/10 overflow-x-auto max-w-full">
+              {galleryImages.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setTourIndex(i);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  className={`flex-shrink-0 w-16 h-12 sm:w-20 sm:h-14 rounded-lg overflow-hidden border-2 transition-all relative ${
+                    tourIndex === i ? "border-white scale-105" : "border-transparent opacity-60 hover:opacity-90"
+                  }`}
+                >
+                  <img src={src} alt={roomLabels[i]} className="w-full h-full object-cover" />
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] sm:text-[9px] font-bold py-0.5 text-center truncate px-0.5">
+                    {roomLabels[i]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// --- APP WRAPPER ---
 export default function App() {
   const [view, setView] = useState("inventory");
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -1218,7 +1311,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] font-sans" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Dev Switcher - (Remove in real app routing) */}
       <div className="flex justify-center py-3 bg-[#faf8ff]/80 backdrop-blur-md border-b border-[#e3e2e9]">
         <div className="inline-flex bg-white border border-[#c4c6d3] rounded-full p-1 shadow-sm">
           <button
@@ -1240,7 +1332,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Render Selected View */}
       {view === "inventory" ? (
         <InventoryView onViewDetails={handleViewDetails} />
       ) : (

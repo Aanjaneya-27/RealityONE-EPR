@@ -2,8 +2,17 @@ import { useEffect, useState, useRef } from "react";
 
 export default function Dashboard() {
   const [selectedFilter, setSelectedFilter] = useState("Last 6 Months");
-  const [activeDrawer, setActiveDrawer] = useState(null); // 'aiAssistant' | 'aiInsights'
-  const [activeDropdown, setActiveDropdown] = useState(null); // 'export' | 'action_0' | 'action_1' | 'action_2'
+  const [activeDrawer, setActiveDrawer] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [activeModal, setActiveModal] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  
+  const [chatMessages, setChatMessages] = useState([
+    { role: "ai", text: "Hello! I am your RealtyOne ERP AI Assistant. I can analyze sales data, check pending bookings, or summarize customer profiles. How can I help you today?" }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef(null);
+
   const exportRef = useRef(null);
   const mainRef = useRef(null);
 
@@ -12,17 +21,16 @@ export default function Dashboard() {
       if (e.key === "Escape") {
         setActiveDrawer(null);
         setActiveDropdown(null);
+        setActiveModal(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Close Dropdowns on Outside Click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (exportRef.current && !exportRef.current.contains(e.target)) {
-        // Close dropdowns if click is outside export area or action menus
         if (!e.target.closest('.action-menu-container')) {
           setActiveDropdown(null);
         }
@@ -32,23 +40,66 @@ export default function Dashboard() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, activeDrawer]);
+
   const handleExport = (action) => {
     if (action === 'print') {
       window.print();
-    } else {
-      console.log(`Generating ${action}...`);
     }
     setActiveDropdown(null);
   };
 
   const handleBookingAction = (type, item) => {
-    alert(`Action triggered: ${type} for ${item}`);
+    setSelectedBooking(item);
+    if (type === 'View Details') setActiveModal('viewDetails');
+    if (type === 'Edit Booking') setActiveModal('editBooking');
+    if (type === 'Download Invoice') setActiveModal('invoice');
     setActiveDropdown(null);
   };
 
-  // ==========================================
-  // EXISTING CHART DATA
-  // ==========================================
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    
+    const userText = chatInput;
+    const newMessages = [...chatMessages, { role: "user", text: userText }];
+    setChatMessages(newMessages);
+    setChatInput("");
+
+    try {
+      const response = await fetch("https://realityone-epr.onrender.com/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: userText }),
+      });
+      
+      const data = await response.json();
+      
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "ai", text: data.answer }
+      ]);
+    } catch (error) {
+      console.error("AI Fetch Error:", error);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "ai", text: "Error connecting to AI Server. Please check your backend." }
+      ]);
+    }
+  };
+
+  const handleQuickPrompt = (promptText) => {
+    setChatInput(promptText);
+    setTimeout(() => {
+      document.getElementById('ai-chat-input')?.focus();
+    }, 100);
+  };
+
   const chartData = {
     "Last 6 Months": [
       { label: 'Jan', top: '60%', bot: '40%' },
@@ -68,10 +119,18 @@ export default function Dashboard() {
     ]
   };
 
+  const fullBookingsData = [
+    { id: 'BKG-001', property: 'The Atrium, Suite 402', type: 'Commercial', customer: 'Nexus Capital Group', amount: '$520,000', status: 'Site Visit', date: '2024-07-24' },
+    { id: 'BKG-002', property: 'Skyline Tower, Apt 18B', type: 'Residential', customer: 'Sarah J. Wellington', amount: '$1,250,000', status: 'Registration', date: '2024-07-23' },
+    { id: 'BKG-003', property: 'Meadow Gardens, Villa 12', type: 'Luxury', customer: 'Dr. Robert Chen', amount: '$890,000', status: 'Booking', date: '2024-07-22' },
+    { id: 'BKG-004', property: 'Horizon Heights, Flat 101', type: 'Residential', customer: 'Michael Chang', amount: '$340,000', status: 'Site Visit', date: '2024-07-21' },
+    { id: 'BKG-005', property: 'Oakwood Estates, Plot 45', type: 'Land', customer: 'Emma Thompson', amount: '$210,000', status: 'Token Paid', date: '2024-07-20' },
+    { id: 'BKG-006', property: 'The Atrium, Shop 12', type: 'Commercial', customer: 'Fresh Foods Ltd', amount: '$450,000', status: 'Registration', date: '2024-07-19' },
+  ];
+
   useEffect(() => {
     const container = mainRef.current;
     if (!container) return;
-
     let rafId = null;
     let pendingEvent = null;
 
@@ -104,11 +163,9 @@ export default function Dashboard() {
   return (
     <>
       <style>{`
-        /* GLOBAL POINTER FIX FOR ALL BUTTONS AND CLICKABLES */
         button, a, select, input[type="button"], input[type="submit"], [role="button"], .cursor-pointer {
           cursor: pointer !important;
         }
-
         .glass-card {
           background-color: rgba(255, 255, 255, 0.8);
           background-image: radial-gradient(300px circle at var(--mouse-x, -300px) var(--mouse-y, -300px), rgba(1, 44, 126, 0.05), transparent 70%);
@@ -120,13 +177,10 @@ export default function Dashboard() {
           transform: translateZ(0);
           backdrop-filter: blur(8px);
         }
-
         .glass-card:hover {
           transform: translateY(-2px) translateZ(0);
           box-shadow: 0 12px 30px rgba(1, 44, 126, 0.08);
         }
-
-        /* Animations */
         @keyframes cardFadeIn {
           from { opacity: 0; transform: translateY(15px); }
           to { opacity: 1; transform: translateY(0); }
@@ -141,20 +195,10 @@ export default function Dashboard() {
           from { transform: scale(0.85); opacity: 0; }
           to { transform: scale(1); opacity: 1; }
         }
-
-        .animate-card-fade {
-          animation: cardFadeIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        .animate-w-fill {
-          animation: fillWidth 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-        .animate-h-fill {
-          animation: fillHeight 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-        .animate-circle {
-          animation: scaleCircle 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
+        .animate-card-fade { animation: cardFadeIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .animate-w-fill { animation: fillWidth 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .animate-h-fill { animation: fillHeight 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .animate-circle { animation: scaleCircle 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .max-w-container-max { max-width: 1600px; }
         .font-display-xl { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 44px; line-height: 52px; letter-spacing: -0.02em; font-weight: 800; }
         .font-display-lg { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; font-weight: 600; }
@@ -162,7 +206,6 @@ export default function Dashboard() {
         .font-body-md { font-family: 'Inter', sans-serif; font-size: 15px; line-height: 24px; font-weight: 400; }
         .font-body-sm { font-family: 'Inter', sans-serif; font-size: 14px; line-height: 20px; font-weight: 400; }
         .font-label-md { font-family: 'Inter', sans-serif; font-size: 13px; line-height: 18px; letter-spacing: 0.02em; font-weight: 600; }
-        
         .bg-primary { background-color: #012c7e; }
         .text-primary { color: #012c7e; }
         .bg-secondary { background-color: #1a53c8; }
@@ -185,15 +228,12 @@ export default function Dashboard() {
 
       <main ref={mainRef} className="px-8 pt-0 pb-10 max-w-container-max mx-auto w-full font-body-md text-on-surface">
         
-        {/* Header Block Title Area */}
         <div className="flex items-center justify-between mb-8 -mt-4 pt-1 opacity-0 animate-card-fade relative z-20" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col">
             <h1 className="font-display-xl text-on-surface tracking-tight">Executive Dashboard</h1>
             <p className="text-on-surface-variant font-body-md mt-1">Welcome back, Director. Here's your portfolio summary for July 2024.</p>
           </div>
           <div className="flex gap-3 relative">
-            
-            {/* Export Dropdown Feature */}
             <div className="relative" ref={exportRef}>
               <button 
                 title="Export executive dashboard reports" 
@@ -202,7 +242,6 @@ export default function Dashboard() {
               >
                 <span className="material-symbols-outlined text-[18px]">download</span> Export Report
               </button>
-              
               <div className={`absolute right-0 top-full mt-2 w-48 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl overflow-hidden origin-top-right transition-all duration-200 z-30 ${activeDropdown === 'export' ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
                 <div className="p-1">
                   <button title="Download PDF document" onClick={() => handleExport('PDF')} className="w-full flex items-center gap-3 px-3 py-2.5 font-label-md text-on-surface hover:bg-surface-container hover:text-primary rounded-lg transition-colors text-left"><span className="material-symbols-outlined text-[18px]">picture_as_pdf</span> Export PDF</button>
@@ -213,18 +252,13 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
-            {/* AI Assistant Button Trigger */}
             <button title="Open AI Chat Assistant" onClick={() => setActiveDrawer('aiAssistant')} className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-xl font-label-md hover:opacity-90 transition-all active:scale-95 shadow-sm">
               <span className="material-symbols-outlined text-[18px]">smart_toy</span> AI Assistant
             </button>
           </div>
         </div>
 
-        {/* KPI Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 relative z-10">
-          
-          {/* Revenue */}
           <div title="Total Gross Revenue Summary" className="glass-card p-6 rounded-xl flex flex-col justify-between shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '100ms' }}>
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
@@ -243,8 +277,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Collections */}
           <div title="Customer Collections Efficiency" className="glass-card p-6 rounded-xl flex flex-col justify-between shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '150ms' }}>
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="w-12 h-12 bg-tertiary/10 text-tertiary rounded-xl flex items-center justify-center">
@@ -264,8 +296,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Inventory */}
           <div title="Current Available Property Units" className="glass-card p-6 rounded-xl flex flex-col justify-between shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '200ms' }}>
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="w-12 h-12 bg-secondary/10 text-secondary rounded-xl flex items-center justify-center">
@@ -286,8 +316,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Leads */}
           <div title="Active CRM Leads Overview" className="glass-card p-6 rounded-xl flex flex-col justify-between shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '250ms' }}>
             <div className="flex items-center justify-between mb-4 relative z-10">
               <div className="w-12 h-12 bg-primary-container/10 text-primary-container rounded-xl flex items-center justify-center">
@@ -313,13 +341,9 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
         </div>
 
-        {/* Bento Grid Section: Charts & Tables */}
         <div className="grid grid-cols-12 gap-6 mb-8 relative z-10">
-          
-          {/* Revenue Trends */}
           <div className="col-span-12 lg:col-span-8 glass-card p-6 rounded-xl shadow-sm border border-outline-variant/30 relative opacity-0 animate-card-fade" style={{ animationDelay: '300ms' }}>
             <div className="flex items-center justify-between mb-6 relative z-10">
               <h3 className="font-display-md text-on-surface">Revenue &amp; Payment Trends</h3>
@@ -341,7 +365,6 @@ export default function Dashboard() {
                 <div className="w-full border-t border-outline-variant/20 flex items-center"><span className="absolute -left-12 text-[11px] font-bold text-on-surface-variant/60">$0.5M</span></div>
                 <div className="w-full border-t border-outline-variant/40 flex items-center"></div>
               </div>
-
               {chartData[selectedFilter].map((item, idx) => (
                 <div key={idx} title={`Month: ${item.label}`} className="flex-1 flex flex-col items-center justify-end h-full gap-2 group relative z-10">
                   <div className="w-full bg-surface-container-highest/60 rounded-t-lg relative flex items-end overflow-hidden h-full">
@@ -363,8 +386,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Lead Source Circle Tracker Box */}
           <div className="col-span-12 lg:col-span-4 glass-card p-6 rounded-xl shadow-sm border border-outline-variant/30 flex flex-col opacity-0 animate-card-fade" style={{ animationDelay: '350ms' }}>
             <h3 className="font-display-md text-on-surface mb-8 relative z-10">Lead Source</h3>
             <div className="flex-1 flex flex-col items-center justify-center relative z-10">
@@ -402,10 +423,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Bento Grid Layer 2: AI Panel & Tables Row */}
         <div className="grid grid-cols-12 gap-6 mb-8 relative z-10">
-          
-          {/* AI Insights Segment */}
           <div className="col-span-12 lg:col-span-4 bg-primary text-white p-6 rounded-xl shadow-lg relative overflow-hidden group opacity-0 animate-card-fade" style={{ animationDelay: '400ms' }}>
             <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-700"></div>
             <div className="absolute -left-8 -bottom-8 w-32 h-32 bg-secondary/20 rounded-full blur-2xl"></div>
@@ -430,17 +448,14 @@ export default function Dashboard() {
                   <span className="text-[11px] text-white/60 mt-2 block font-bold uppercase tracking-widest">Workflow Trigger</span>
                 </div>
               </div>
-              
               <button title="Launch full deep-dive analytical drawer" onClick={() => setActiveDrawer('aiInsights')} className="w-full mt-6 py-3 bg-white text-primary rounded-xl font-bold text-label-md hover:shadow-xl transition-all active:scale-95">Launch AI Deep Dive</button>
-            
             </div>
           </div>
 
-          {/* Recent Bookings Complete Table */}
           <div className="col-span-12 lg:col-span-8 glass-card rounded-xl shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '450ms' }}>
             <div className="p-6 flex items-center justify-between border-b border-outline-variant/30">
               <h3 className="font-display-md text-on-surface">Recent Bookings</h3>
-              <button title="View complete list of bookings" className="text-primary font-label-md hover:underline">View All</button>
+              <button title="View complete list of bookings" onClick={() => setActiveModal('viewAll')} className="text-primary font-label-md hover:underline">View All</button>
             </div>
             <div className="overflow-x-auto p-2">
               <table className="w-full text-left border-separate border-spacing-y-2">
@@ -454,131 +469,57 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-
-                  {/* Booking Row 1 */}
-                  <tr className="bg-transparent hover:bg-surface-container-lowest transition-all duration-300 hover:-translate-y-1 hover:shadow-lg relative z-0 hover:z-10 rounded-xl group">
-                    <td className="px-6 py-4 rounded-l-xl">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-on-surface">The Atrium, Suite 402</span>
-                        <span className="text-[12px] text-on-surface-variant">Commercial • Phase 2</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-on-surface">Nexus Capital Group</td>
-                    <td className="px-6 py-4 font-mono font-bold text-on-surface">$520,000</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/10 text-secondary font-label-md text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span> Site Visit
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right rounded-r-xl relative action-menu-container">
-                      <button 
-                        title="Actions menu for Suite 402"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === 'action_0' ? null : 'action_0');
-                        }} 
-                        className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors active:scale-95"
-                      >
-                        <span className="material-symbols-outlined">more_vert</span>
-                      </button>
-
-                      {/* Action Dropdown Menu */}
-                      <div className={`absolute right-4 top-12 w-44 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl overflow-hidden origin-top-right transition-all duration-200 z-30 ${activeDropdown === 'action_0' ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
-                        <div className="p-1 text-left">
-                          <button onClick={() => handleBookingAction('View Details', 'The Atrium, Suite 402')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">visibility</span> View Details</button>
-                          <button onClick={() => handleBookingAction('Edit Booking', 'The Atrium, Suite 402')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">edit</span> Edit Booking</button>
-                          <button onClick={() => handleBookingAction('Download Invoice', 'The Atrium, Suite 402')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">receipt</span> Invoice</button>
+                  {fullBookingsData.slice(0,3).map((item, index) => (
+                    <tr key={item.id} className="bg-transparent hover:bg-surface-container-lowest transition-all duration-300 hover:-translate-y-1 hover:shadow-lg relative z-0 hover:z-10 rounded-xl group">
+                      <td className="px-6 py-4 rounded-l-xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-on-surface">{item.property}</span>
+                          <span className="text-[12px] text-on-surface-variant">{item.type}</span>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Booking Row 2 */}
-                  <tr className="bg-transparent hover:bg-surface-container-lowest transition-all duration-300 hover:-translate-y-1 hover:shadow-lg relative z-0 hover:z-10 rounded-xl group">
-                    <td className="px-6 py-4 rounded-l-xl">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-on-surface">Skyline Tower, Apt 18B</span>
-                        <span className="text-[12px] text-on-surface-variant">Residential • High-Rise</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-on-surface">Sarah J. Wellington</td>
-                    <td className="px-6 py-4 font-mono font-bold text-on-surface">$1,250,000</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary-container text-on-tertiary-container font-label-md text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Registration
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right rounded-r-xl relative action-menu-container">
-                      <button 
-                        title="Actions menu for Apt 18B"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === 'action_1' ? null : 'action_1');
-                        }} 
-                        className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors active:scale-95"
-                      >
-                        <span className="material-symbols-outlined">more_vert</span>
-                      </button>
-
-                      {/* Action Dropdown Menu */}
-                      <div className={`absolute right-4 top-12 w-44 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl overflow-hidden origin-top-right transition-all duration-200 z-30 ${activeDropdown === 'action_1' ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
-                        <div className="p-1 text-left">
-                          <button onClick={() => handleBookingAction('View Details', 'Skyline Tower, Apt 18B')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">visibility</span> View Details</button>
-                          <button onClick={() => handleBookingAction('Edit Booking', 'Skyline Tower, Apt 18B')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">edit</span> Edit Booking</button>
-                          <button onClick={() => handleBookingAction('Download Invoice', 'Skyline Tower, Apt 18B')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">receipt</span> Invoice</button>
+                      </td>
+                      <td className="px-6 py-4 text-on-surface">{item.customer}</td>
+                      <td className="px-6 py-4 font-mono font-bold text-on-surface">{item.amount}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-md text-[11px] ${
+                          item.status === 'Site Visit' ? 'bg-secondary/10 text-secondary' :
+                          item.status === 'Registration' ? 'bg-tertiary-container text-on-tertiary-container' :
+                          'bg-primary/10 text-primary'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            item.status === 'Site Visit' ? 'bg-secondary' :
+                            item.status === 'Registration' ? 'bg-tertiary' :
+                            'bg-primary'
+                          }`}></span> {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right rounded-r-xl relative action-menu-container">
+                        <button 
+                          title={`Actions menu for ${item.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdown(activeDropdown === `action_${index}` ? null : `action_${index}`);
+                          }} 
+                          className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors active:scale-95"
+                        >
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                        <div className={`absolute right-4 top-12 w-44 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl overflow-hidden origin-top-right transition-all duration-200 z-30 ${activeDropdown === `action_${index}` ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
+                          <div className="p-1 text-left">
+                            <button onClick={() => handleBookingAction('View Details', item)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">visibility</span> View Details</button>
+                            <button onClick={() => handleBookingAction('Edit Booking', item)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">edit</span> Edit Booking</button>
+                            <button onClick={() => handleBookingAction('Download Invoice', item)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">receipt</span> Invoice</button>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Booking Row 3 */}
-                  <tr className="bg-transparent hover:bg-surface-container-lowest transition-all duration-300 hover:-translate-y-1 hover:shadow-lg relative z-0 hover:z-10 rounded-xl group">
-                    <td className="px-6 py-4 rounded-l-xl">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-on-surface">Meadow Gardens, Villa 12</span>
-                        <span className="text-[12px] text-on-surface-variant">Luxury • Villa</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-on-surface">Dr. Robert Chen</td>
-                    <td className="px-6 py-4 font-mono font-bold text-on-surface">$890,000</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-md text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary"></span> Booking
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right rounded-r-xl relative action-menu-container">
-                      <button 
-                        title="Actions menu for Villa 12"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === 'action_2' ? null : 'action_2');
-                        }} 
-                        className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors active:scale-95"
-                      >
-                        <span className="material-symbols-outlined">more_vert</span>
-                      </button>
-
-                      {/* Action Dropdown Menu */}
-                      <div className={`absolute right-4 top-12 w-44 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl overflow-hidden origin-top-right transition-all duration-200 z-30 ${activeDropdown === 'action_2' ? 'scale-100 opacity-100 visible' : 'scale-95 opacity-0 invisible'}`}>
-                        <div className="p-1 text-left">
-                          <button onClick={() => handleBookingAction('View Details', 'Meadow Gardens, Villa 12')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">visibility</span> View Details</button>
-                          <button onClick={() => handleBookingAction('Edit Booking', 'Meadow Gardens, Villa 12')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">edit</span> Edit Booking</button>
-                          <button onClick={() => handleBookingAction('Download Invoice', 'Meadow Gardens, Villa 12')} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-surface-container rounded-lg text-on-surface"><span className="material-symbols-outlined text-[16px]">receipt</span> Invoice</button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        {/* Construction Progress & Funnel Efficiency Grid Rows */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 relative z-10">
-          
-          {/* Construction Progress */}
           <div className="glass-card p-6 rounded-xl shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade" style={{ animationDelay: '500ms' }}>
             <h3 className="font-display-md text-on-surface mb-6 relative z-10">Construction Milestone Progress</h3>
             <div className="space-y-6 relative z-10">
@@ -612,12 +553,9 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Full Funnel Efficiency Panels */}
           <div className="glass-card p-6 rounded-xl shadow-sm border border-outline-variant/30 flex flex-col opacity-0 animate-card-fade" style={{ animationDelay: '550ms' }}>
             <h3 className="font-display-md text-on-surface mb-6 relative z-10">Sales Funnel Efficiency</h3>
             <div className="flex-1 flex flex-col gap-3 justify-center relative z-10">
-              
               <div title="Total leads conversion pool" className="relative h-12 bg-blue-500/10 rounded-xl flex items-center px-6 overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 bg-blue-600 animate-w-fill opacity-20" style={{ width: "100%" }}></div>
                 <div className="relative flex-1 flex items-center justify-between">
@@ -626,7 +564,6 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex justify-center"><span className="material-symbols-outlined text-outline-variant">keyboard_arrow_down</span></div>
-              
               <div title="65% leads converted to Site Visits" className="relative h-12 bg-red-500/10 rounded-xl flex items-center px-6 overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 bg-red-600 animate-w-fill opacity-20" style={{ width: "65%" }}></div>
                 <div className="relative flex-1 flex items-center justify-between">
@@ -635,7 +572,6 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex justify-center"><span className="material-symbols-outlined text-outline-variant">keyboard_arrow_down</span></div>
-              
               <div title="28% site visits converted to Bookings" className="relative h-12 bg-green-500/10 rounded-xl flex items-center px-6 overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 bg-green-600 animate-w-fill opacity-20" style={{ width: "28%" }}></div>
                 <div className="relative flex-1 flex items-center justify-between">
@@ -644,7 +580,6 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex justify-center"><span className="material-symbols-outlined text-outline-variant">keyboard_arrow_down</span></div>
-              
               <div title="12% bookings converted to Final Registrations" className="relative h-12 bg-gray-800/10 rounded-xl flex items-center px-6 overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 bg-gray-900 animate-w-fill opacity-20" style={{ width: "12%" }}></div>
                 <div className="relative flex-1 flex items-center justify-between">
@@ -652,12 +587,10 @@ export default function Dashboard() {
                   <span className="font-bold text-gray-900">12%</span>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
 
-        {/* Tasks Framework Schedule Rows */}
         <div className="glass-card p-6 rounded-xl shadow-sm border border-outline-variant/30 opacity-0 animate-card-fade relative z-10" style={{ animationDelay: '600ms' }}>
           <div className="flex items-center justify-between mb-8 relative z-10">
             <h3 className="font-display-md text-on-surface">Today's High-Priority Tasks</h3>
@@ -712,16 +645,13 @@ export default function Dashboard() {
 
       </main>
 
-      {/* Shared Dark Overlay Background */}
       <div 
         onClick={() => setActiveDrawer(null)}
-        className={`fixed inset-0 bg-[#00174c]/30 backdrop-blur-sm z-40 transition-opacity duration-300 ${activeDrawer ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
+        className={`fixed inset-0 bg-[#00174c]/30 backdrop-blur-sm z-40 transition-opacity duration-300 ${activeDrawer ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}
       ></div>
 
-      {/* Base Slide-in Drawer Container */}
       <div className={`fixed top-0 right-0 h-full w-full sm:w-[450px] bg-surface-container-lowest shadow-2xl z-50 transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] flex flex-col ${activeDrawer ? 'translate-x-0' : 'translate-x-full'}`}>
         
-        {/* DRAWER 1: AI ASSISTANT */}
         {activeDrawer === 'aiAssistant' && (
           <div className="flex-1 flex flex-col h-full bg-surface-container-lowest">
             <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30 bg-surface-container-low">
@@ -740,39 +670,51 @@ export default function Dashboard() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-              <div className="flex items-start gap-3 w-5/6">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className={`flex items-start gap-3 w-5/6 ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
+                  {msg.role === 'ai' && (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+                    </div>
+                  )}
+                  <div className={`p-4 rounded-2xl text-body-sm shadow-sm border ${
+                    msg.role === 'user' 
+                      ? 'bg-primary text-white rounded-tr-sm border-primary' 
+                      : 'bg-surface-container-low text-on-surface rounded-tl-sm border-outline-variant/20'
+                  }`}>
+                    {msg.text}
+                  </div>
                 </div>
-                <div className="bg-surface-container-low p-4 rounded-2xl rounded-tl-sm text-body-sm text-on-surface shadow-sm border border-outline-variant/20">
-                  Hello! I am your RealtyOne ERP AI Assistant. I can analyze sales data, check pending bookings, or summarize customer profiles. How can I help you today?
+              ))}
+              <div ref={chatEndRef} />
+              
+              {chatMessages.length === 1 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button onClick={() => handleQuickPrompt("Show today's sales")} className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
+                    Show today's sales
+                  </button>
+                  <button onClick={() => handleQuickPrompt("Pending bookings")} className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
+                    Pending bookings
+                  </button>
+                  <button onClick={() => handleQuickPrompt("Customer follow ups")} className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
+                    Customer follow ups
+                  </button>
                 </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button title="Quick prompt: Show today's sales" className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
-                  Show today's sales
-                </button>
-                <button title="Quick prompt: Pending bookings" className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
-                  Pending bookings
-                </button>
-                <button title="Quick prompt: Customer follow ups" className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
-                  Customer follow ups
-                </button>
-                <button title="Quick prompt: Revenue summary" className="text-[12px] font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap">
-                  Revenue summary
-                </button>
-              </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-outline-variant/30 bg-surface-container-low">
               <div className="relative flex items-center">
                 <input 
+                  id="ai-chat-input"
                   type="text" 
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
                   placeholder="Ask anything about your portfolio..." 
                   className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-full pl-4 pr-12 py-3 text-body-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
                 />
-                <button title="Send Message" className="absolute right-2 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center hover:bg-secondary transition-colors shadow-sm">
+                <button onClick={handleSendChat} title="Send Message" className="absolute right-2 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center hover:bg-secondary transition-colors shadow-sm">
                   <span className="material-symbols-outlined text-[16px]">send</span>
                 </button>
               </div>
@@ -780,7 +722,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* DRAWER 2: AI SALES INSIGHTS */}
         {activeDrawer === 'aiInsights' && (
           <div className="flex-1 flex flex-col h-full bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-outline-variant/30 bg-primary relative overflow-hidden">
@@ -825,7 +766,6 @@ export default function Dashboard() {
                     <span className="text-body-sm font-bold text-secondary">42 Sales</span>
                   </div>
                 </div>
-
                 <div title="Pipeline state for hot leads" className="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-error">local_fire_department</span>
@@ -837,7 +777,6 @@ export default function Dashboard() {
                   <p className="text-[11px] text-on-surface-variant font-bold text-right">85 Active Negotiations</p>
                 </div>
               </div>
-
               <div className="bg-primary-container p-5 rounded-xl text-white shadow-md relative overflow-hidden">
                 <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
                    <span className="material-symbols-outlined text-[100px]">psychology</span>
@@ -854,7 +793,6 @@ export default function Dashboard() {
                   </li>
                 </ul>
               </div>
-
             </div>
 
             <div className="p-4 border-t border-outline-variant/30 bg-surface-container-lowest flex gap-3">
@@ -867,8 +805,170 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
       </div>
+
+      {activeModal && (
+        <div className="fixed inset-0 bg-[#00174c]/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col animate-card-fade">
+            
+            <div className="flex items-center justify-between p-6 border-b border-outline-variant/30">
+              <h2 className="font-display-md text-on-surface">
+                {activeModal === 'viewAll' && 'All Recent Bookings'}
+                {activeModal === 'viewDetails' && `Booking Details: ${selectedBooking?.id}`}
+                {activeModal === 'editBooking' && `Edit Booking: ${selectedBooking?.id}`}
+                {activeModal === 'invoice' && `Invoice for ${selectedBooking?.customer}`}
+              </h2>
+              <button onClick={() => setActiveModal(null)} className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 font-body-md text-on-surface">
+              {activeModal === 'viewAll' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-on-surface-variant font-label-md uppercase tracking-wider text-[11px] border-b border-outline-variant/30">
+                        <th className="px-4 py-3">Booking ID</th>
+                        <th className="px-4 py-3">Property</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fullBookingsData.map((item) => (
+                        <tr key={item.id} className="border-b border-outline-variant/10 hover:bg-surface-container-low">
+                          <td className="px-4 py-3 font-bold text-primary">{item.id}</td>
+                          <td className="px-4 py-3">{item.property}</td>
+                          <td className="px-4 py-3">{item.customer}</td>
+                          <td className="px-4 py-3 font-mono">{item.amount}</td>
+                          <td className="px-4 py-3">{item.date}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-container font-label-md text-[11px]">
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {activeModal === 'viewDetails' && selectedBooking && (
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Customer Info</span>
+                    <p className="font-bold text-lg">{selectedBooking.customer}</p>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Property Unit</span>
+                    <p className="font-bold text-lg">{selectedBooking.property}</p>
+                    <p className="text-body-sm text-on-surface-variant">{selectedBooking.type}</p>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Transaction Value</span>
+                    <p className="font-display-md text-primary">{selectedBooking.amount}</p>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Current Status</span>
+                    <p className="font-bold text-lg">{selectedBooking.status}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === 'editBooking' && selectedBooking && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-md text-on-surface-variant">Customer Name</label>
+                    <input type="text" defaultValue={selectedBooking.customer} className="border border-outline-variant/50 rounded-lg px-4 py-2 bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-md text-on-surface-variant">Property Unit</label>
+                    <input type="text" defaultValue={selectedBooking.property} className="border border-outline-variant/50 rounded-lg px-4 py-2 bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-md text-on-surface-variant">Amount</label>
+                    <input type="text" defaultValue={selectedBooking.amount} className="border border-outline-variant/50 rounded-lg px-4 py-2 bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-label-md text-on-surface-variant">Status</label>
+                    <select defaultValue={selectedBooking.status} className="border border-outline-variant/50 rounded-lg px-4 py-2 bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none">
+                      <option value="Site Visit">Site Visit</option>
+                      <option value="Booking">Booking</option>
+                      <option value="Registration">Registration</option>
+                      <option value="Token Paid">Token Paid</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === 'invoice' && selectedBooking && (
+                <div className="border border-outline-variant/30 p-8 rounded-xl bg-surface-container-lowest max-w-2xl mx-auto shadow-sm">
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h2 className="font-display-lg text-primary mb-1">RealtyOne ERP</h2>
+                      <p className="text-body-sm text-on-surface-variant">123 Corporate Blvd, Suite 400<br/>New York, NY 10001</p>
+                    </div>
+                    <div className="text-right">
+                      <h3 className="font-display-md text-on-surface">INVOICE</h3>
+                      <p className="font-bold text-on-surface-variant">{selectedBooking.id}</p>
+                      <p className="text-body-sm text-on-surface-variant mt-2">Date: {selectedBooking.date}</p>
+                    </div>
+                  </div>
+                  <div className="border-t border-b border-outline-variant/30 py-4 mb-6">
+                    <p className="font-label-md text-on-surface-variant uppercase">Bill To:</p>
+                    <p className="font-bold text-lg">{selectedBooking.customer}</p>
+                  </div>
+                  <table className="w-full text-left mb-8">
+                    <thead>
+                      <tr className="border-b border-outline-variant/50 text-on-surface-variant font-label-md">
+                        <th className="py-2">Description</th>
+                        <th className="py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-outline-variant/20">
+                        <td className="py-4">
+                          <p className="font-bold">{selectedBooking.property}</p>
+                          <p className="text-body-sm text-on-surface-variant">{selectedBooking.type} Property Deposit</p>
+                        </td>
+                        <td className="py-4 text-right font-mono font-bold">{selectedBooking.amount}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div className="flex justify-end">
+                    <div className="w-1/2">
+                      <div className="flex justify-between py-2 font-bold text-lg">
+                        <span>Total Due:</span>
+                        <span className="font-mono text-primary">{selectedBooking.amount}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-outline-variant/30 flex justify-end gap-3 bg-surface-container-low rounded-b-2xl">
+              <button onClick={() => setActiveModal(null)} className="px-6 py-2 rounded-xl font-label-md text-on-surface hover:bg-outline-variant/20 transition-colors">
+                Cancel
+              </button>
+              {activeModal === 'editBooking' && (
+                <button onClick={() => setActiveModal(null)} className="px-6 py-2 bg-primary text-white rounded-xl font-label-md hover:bg-primary/90 shadow-md transition-all active:scale-95">
+                  Save Changes
+                </button>
+              )}
+              {activeModal === 'invoice' && (
+                <button onClick={() => { window.print(); setActiveModal(null); }} className="px-6 py-2 bg-primary text-white rounded-xl font-label-md hover:bg-primary/90 shadow-md transition-all active:scale-95 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">print</span> Print Invoice
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

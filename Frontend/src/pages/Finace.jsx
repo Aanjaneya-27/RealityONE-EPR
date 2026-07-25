@@ -18,9 +18,6 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 
-/* ------------------------------------------------------------------ */
-/*  Data                                                               */
-/* ------------------------------------------------------------------ */
 
 const INSTALLMENTS = [
   { id: 1, label: "Instalment 01", due: "Nov 15, 2023", amount: 64000, status: "paid", ref: "TXN_98210398" },
@@ -46,9 +43,6 @@ const STATUS_STYLE = {
 const fmt = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
 
-/* ------------------------------------------------------------------ */
-/*  Small building blocks                                              */
-/* ------------------------------------------------------------------ */
 
 function CollectionRing({ percent, size = 128, stroke = 11 }) {
   const r = (size - stroke) / 2;
@@ -480,7 +474,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Record Payment modal */}
       {modalOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#12172B]/60 backdrop-blur-sm px-4"
