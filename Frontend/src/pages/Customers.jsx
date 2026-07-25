@@ -155,7 +155,7 @@ const INITIAL_CUSTOMERS = [...BASE_CUSTOMERS, ...EXTRA_CUSTOMERS];
 const money = (n) => "$" + Number(n || 0).toLocaleString("en-US");
 const uid = () => "CUST-" + Math.floor(90000 + Math.random() * 9999);
 
-
+// Icons
 function Icon({ name, className = "", filled = false, style = {} }) {
   return (
     <span
