@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-
-/**
- * Sales & Payments — ASZONE ERP
- * Standalone content only (no sidebar / top navbar), built with React + Tailwind CSS.
- */
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const chartData = [
-  { label: "JUL", h: "h-3/4" },
-  { label: "AUG", h: "h-4/5" },
-  { label: "SEP", h: "h-[90%]" },
-  { label: "OCT", h: "h-[65%]" },
-  { label: "NOV", h: "h-[85%]" },
-  { label: "DEC", h: "h-[95%]" },
+  { label: "JUL", actual: 8.2, projected: 9.5 },
+  { label: "AUG", actual: 9.6, projected: 10.1 },
+  { label: "SEP", actual: 11.4, projected: 11.0 },
+  { label: "OCT", actual: 7.1, projected: 9.8 },
+  { label: "NOV", actual: 10.3, projected: 10.5 },
+  { label: "DEC", actual: 12.6, projected: 12.0 },
 ];
+const CHART_MAX = Math.max(...chartData.flatMap((d) => [d.actual, d.projected])) * 1.1;
 
 const ledger = [
   {
@@ -49,59 +45,182 @@ const ledger = [
   },
 ];
 
-const transactions = [
+function daysFromNow(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+function monthsFromNow(offset, day = 15) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset, day);
+  return d;
+}
+function fmt(date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
+const rawTransactions = [
   {
     id: "#TXN-89021",
     initials: "AM",
     name: "Arthur Morgan",
     property: "Riverfront Estate - Phase 2",
-    amount: "$24,500.00",
-    due: "Oct 12, 2023",
+    amountValue: 24500,
+    dueDate: daysFromNow(-3),
     status: "Paid",
-    statusClass: "bg-green-100 text-green-700",
+    paymentMethod: "Wire",
   },
   {
     id: "#TXN-89022",
     initials: "SK",
     name: "Sarah Koenig",
     property: "The Zenith - Apt 12A",
-    amount: "$12,000.00",
-    due: "Sep 28, 2023",
+    amountValue: 12000,
+    dueDate: daysFromNow(-20),
     status: "Overdue",
-    statusClass: "bg-red-100 text-red-700",
+    paymentMethod: "Escrow",
   },
   {
     id: "#TXN-89023",
     initials: "JD",
     name: "John Doe",
     property: "Oakwood Villas - Villa 7",
-    amount: "$38,900.00",
-    due: "Oct 20, 2023",
+    amountValue: 38900,
+    dueDate: daysFromNow(6),
     status: "Pending",
-    statusClass: "bg-yellow-100 text-yellow-700",
+    paymentMethod: "Bank Draft",
+  },
+  {
+    id: "#TXN-89024",
+    initials: "LR",
+    name: "Laura Reyes",
+    property: "Skyline Towers - Unit 402",
+    amountValue: 15750,
+    dueDate: daysFromNow(-1),
+    status: "Paid",
+    paymentMethod: "Wire",
+  },
+  {
+    id: "#TXN-89025",
+    initials: "MC",
+    name: "Miguel Cortez",
+    property: "Emerald Garden - Plot 22",
+    amountValue: 8500,
+    dueDate: monthsFromNow(-2),
+    status: "Overdue",
+    paymentMethod: "Bank Draft",
+  },
+  {
+    id: "#TXN-89026",
+    initials: "NP",
+    name: "Nadia Petrov",
+    property: "Marina Bay - Unit 1021",
+    amountValue: 45000,
+    dueDate: monthsFromNow(0, 20),
+    status: "Pending",
+    paymentMethod: "Escrow",
+  },
+  {
+    id: "#TXN-89027",
+    initials: "OT",
+    name: "Owen Tran",
+    property: "Luxury Suites - Booking",
+    amountValue: 19800,
+    dueDate: daysFromNow(-45),
+    status: "Paid",
+    paymentMethod: "Escrow",
+  },
+  {
+    id: "#TXN-89028",
+    initials: "RB",
+    name: "Renee Bishop",
+    property: "Oakwood Villas - Villa 12",
+    amountValue: 27650,
+    dueDate: daysFromNow(2),
+    status: "Pending",
+    paymentMethod: "Wire",
   },
 ];
 
-function Bar({ label, h, delay }) {
-  const barRef = useRef(null);
+const statusClassMap = {
+  Paid: "bg-green-100 text-green-700",
+  Overdue: "bg-red-100 text-red-700",
+  Pending: "bg-yellow-100 text-yellow-700",
+};
+
+const DATE_RANGE_OPTIONS = ["All Time", "Last 7 Days", "This Month", "Q3"];
+const PAYMENT_METHOD_OPTIONS = ["All Methods", "Wire", "Escrow", "Bank Draft"];
+
+function isInQ3(date) {
+  const m = date.getMonth(); 
+  return m >= 6 && m <= 8;
+}
+
+function matchesDateRange(date, range) {
+  const now = new Date();
+  if (range === "All Time") return true;
+  if (range === "Last 7 Days") {
+    const diffDays = (now - date) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 7;
+  }
+  if (range === "This Month") {
+    return (
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+  }
+  if (range === "Q3") return isInQ3(date);
+  return true;
+}
+
+function Bar({ label, actual, projected, delay }) {
+  const actualRef = useRef(null);
+  const projectedRef = useRef(null);
+  const [hover, setHover] = useState(false);
 
   useEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    el.style.height = "0%";
+    const actualEl = actualRef.current;
+    const projectedEl = projectedRef.current;
+    if (!actualEl || !projectedEl) return;
+    actualEl.style.height = "0%";
+    projectedEl.style.height = "0%";
     const t = setTimeout(() => {
-      el.classList.add(h);
+      actualEl.style.height = `${(actual / CHART_MAX) * 100}%`;
+      projectedEl.style.height = `${(projected / CHART_MAX) * 100}%`;
     }, delay);
     return () => clearTimeout(t);
-  }, [h, delay]);
+  }, [actual, projected, delay]);
 
   return (
-    <div className="flex-1 flex flex-col items-center gap-2">
-      <div className="w-full max-w-[40px] bg-[#012c7e]/10 rounded-t-lg relative h-40 group cursor-pointer overflow-hidden">
-        <div
-          ref={barRef}
-          className="absolute bottom-0 w-full bg-[#012c7e]/40 group-hover:bg-[#012c7e] transition-[height] duration-1000 ease-out"
-        />
+    <div
+      className="flex-1 flex flex-col items-center gap-2"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div className="w-full flex items-end justify-center gap-1.5 h-40 relative">
+        {hover && (
+          <div className="absolute -top-11 left-1/2 -translate-x-1/2 bg-[#1a1b21] text-white text-[11px] font-semibold rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg z-10">
+            Actual ${actual.toFixed(1)}M · Projected ${projected.toFixed(1)}M
+          </div>
+        )}
+        <div className="w-full max-w-[16px] bg-[#012c7e]/10 rounded-t-lg relative h-full overflow-hidden cursor-pointer">
+          <div
+            ref={actualRef}
+            className="absolute bottom-0 w-full rounded-t-lg transition-[height] duration-1000 ease-out"
+            style={{ backgroundColor: "#012c7e" }}
+          />
+        </div>
+        <div className="w-full max-w-[16px] bg-red-100 rounded-t-lg relative h-full overflow-hidden cursor-pointer">
+          <div
+            ref={projectedRef}
+            className="absolute bottom-0 w-full rounded-t-lg transition-[height] duration-1000 ease-out"
+            style={{ backgroundColor: "#dc2626" }}
+          />
+        </div>
       </div>
       <span className="text-[11px] font-semibold tracking-wide text-gray-400">
         {label}
@@ -110,11 +229,261 @@ function Bar({ label, h, delay }) {
   );
 }
 
+function DropdownMenu({ items, onSelect, align = "right" }) {
+  return (
+    <div
+      className={`absolute z-50 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 ${
+        align === "right" ? "right-0" : "left-0"
+      }`}
+    >
+      {items.map((item) => (
+        <button
+          key={item.label}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(item);
+          }}
+          className="w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium text-[#1a1b21] hover:bg-gray-50 transition-colors text-left"
+        >
+          {item.icon && (
+            <span
+              className={`material-symbols-outlined text-[18px] ${
+                item.iconColor || "text-gray-400"
+              }`}
+            >
+              {item.icon}
+            </span>
+          )}
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ConfirmationModal({ title, message, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-[24px] shadow-2xl max-w-sm w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: "#dbe1ff", color: "#012c7e" }}
+        >
+          <span className="material-symbols-outlined">task_alt</span>
+        </div>
+        <h4 className="font-display text-[18px] font-semibold text-[#1a1b21] mb-1">
+          {title}
+        </h4>
+        <p className="text-[14px] text-[#444651] mb-6">{message}</p>
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 rounded-xl text-white text-[13px] font-semibold"
+          style={{ backgroundColor: "#012c7e" }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Payments() {
   const [tab, setTab] = useState("All Transactions");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("All Methods");
+  const [dateRangeFilter, setDateRangeFilter] = useState("All Time");
+
+  const [openMenu, setOpenMenu] = useState(null);
+  const [modal, setModal] = useState(null); 
+
+  const containerRef = useRef(null);
+
+  // Close any open dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpenMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const toggleMenu = (key) =>
+    setOpenMenu((prev) => (prev === key ? null : key));
+
+  const filteredTransactions = useMemo(() => {
+    return rawTransactions.filter((tx) => {
+      const statusOk =
+        tab === "All Transactions" ? true : tx.status === tab;
+      const methodOk =
+        paymentMethodFilter === "All Methods"
+          ? true
+          : tx.paymentMethod === paymentMethodFilter;
+      const dateOk = matchesDateRange(tx.dueDate, dateRangeFilter);
+      return statusOk && methodOk && dateOk;
+    });
+  }, [tab, paymentMethodFilter, dateRangeFilter]);
+
+  function handleDownloadInvoice(tx) {
+    const lines = [
+      `Invoice for ${tx.id}`,
+      `Customer: ${tx.name}`,
+      `Property: ${tx.property}`,
+      `Amount: $${tx.amountValue.toLocaleString()}`,
+      `Due Date: ${fmt(tx.dueDate)}`,
+      `Status: ${tx.status}`,
+      `Payment Method: ${tx.paymentMethod}`,
+    ].join("\n");
+    const blob = new Blob([lines], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `invoice-${tx.id.replace("#", "")}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setModal({
+      title: "Invoice Downloaded",
+      message: `Invoice for ${tx.id} has been downloaded.`,
+    });
+  }
+
+  function handleVerifyTransaction(tx) {
+    setModal({
+      title: "Transaction Verified",
+      message: `${tx.id} for ${tx.name} has been marked as verified.`,
+    });
+  }
+
+  function handleSendReminder(tx) {
+    setModal({
+      title: "Reminder Sent",
+      message: `A payment reminder has been sent to ${tx.name} for ${tx.id}.`,
+    });
+  }
+
+  function handleRowAction(item, tx) {
+    setOpenMenu(null);
+    if (item.key === "download") handleDownloadInvoice(tx);
+    if (item.key === "verify") handleVerifyTransaction(tx);
+    if (item.key === "remind") handleSendReminder(tx);
+  }
+
+  function buildExportRows() {
+    const header = [
+      "Transaction ID",
+      "Customer",
+      "Property Detail",
+      "Amount",
+      "Due Date",
+      "Status",
+      "Payment Method",
+    ];
+    const rows = filteredTransactions.map((tx) => [
+      tx.id,
+      tx.name,
+      tx.property,
+      tx.amountValue,
+      fmt(tx.dueDate),
+      tx.status,
+      tx.paymentMethod,
+    ]);
+    return [header, ...rows];
+  }
+
+  function downloadFile(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function rowsToCsv(rows) {
+    return rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+  }
+
+  function handleExportCsv() {
+    const csv = rowsToCsv(buildExportRows());
+    downloadFile(csv, "payment-schedule.csv", "text/csv;charset=utf-8;");
+    setOpenMenu(null);
+    setModal({
+      title: "CSV Exported",
+      message: "Your payment schedule has been downloaded as a CSV file.",
+    });
+  }
+
+  function handleExportExcel() {
+    const rows = buildExportRows();
+    const html = `<table>${rows
+      .map(
+        (row) =>
+          `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`
+      )
+      .join("")}</table>`;
+    downloadFile(html, "payment-schedule.xls", "application/vnd.ms-excel");
+    setOpenMenu(null);
+    setModal({
+      title: "Excel File Exported",
+      message: "Your payment schedule has been downloaded as an Excel file.",
+    });
+  }
+
+  function handleExportPdf() {
+    setOpenMenu(null);
+    window.print();
+    setModal({
+      title: "Export to PDF",
+      message:
+        "Use the print dialog's \"Save as PDF\" destination to save this report as a PDF.",
+    });
+  }
+
+  function handlePrint() {
+    setOpenMenu(null);
+    window.print();
+  }
+
+  const exportMenuItems = [
+    { key: "pdf", label: "Export as PDF", icon: "picture_as_pdf", iconColor: "text-red-600" },
+    { key: "excel", label: "Export as Excel", icon: "grid_on", iconColor: "text-green-600" },
+    { key: "csv", label: "Export as CSV", icon: "description", iconColor: "text-blue-600" },
+    { key: "print", label: "Print Report", icon: "print", iconColor: "text-gray-500" },
+  ];
+
+  function handleExportSelect(item) {
+    if (item.key === "pdf") handleExportPdf();
+    if (item.key === "excel") handleExportExcel();
+    if (item.key === "csv") handleExportCsv();
+    if (item.key === "print") handlePrint();
+  }
+
+  const rowMenuItemsFor = () => [
+    { key: "download", label: "Download Invoice", icon: "download", iconColor: "text-blue-600" },
+    { key: "verify", label: "Verify Transaction", icon: "verified", iconColor: "text-primary" },
+    { key: "remind", label: "Send Reminder", icon: "notifications_active", iconColor: "text-yellow-600" },
+  ];
 
   return (
     <div
+      ref={containerRef}
       className="min-h-screen w-full"
       style={{
         backgroundColor: "#F6F8FB",
@@ -153,18 +522,46 @@ export default function Payments() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[#1a1b21] text-[13px] font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">
-                filter_list
-              </span>
-              Filter Range
-            </button>
-            <button className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[#1a1b21] text-[13px] font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">
-                file_download
-              </span>
-              Export Report
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => toggleMenu("filterRange")}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[#1a1b21] text-[13px] font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  filter_list
+                </span>
+                {dateRangeFilter === "All Time"
+                  ? "Filter Range"
+                  : dateRangeFilter}
+              </button>
+              {openMenu === "filterRange" && (
+                <DropdownMenu
+                  items={DATE_RANGE_OPTIONS.map((opt) => ({ label: opt }))}
+                  onSelect={(item) => {
+                    setDateRangeFilter(item.label);
+                    setOpenMenu(null);
+                  }}
+                />
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => toggleMenu("export")}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[#1a1b21] text-[13px] font-semibold flex items-center gap-2 hover:bg-gray-50 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  file_download
+                </span>
+                Export Report
+              </button>
+              {openMenu === "export" && (
+                <DropdownMenu
+                  items={exportMenuItems}
+                  onSelect={handleExportSelect}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -272,7 +669,13 @@ export default function Payments() {
 
             <div className="h-64 flex items-end justify-between gap-4 px-2">
               {chartData.map((bar, i) => (
-                <Bar key={bar.label} label={bar.label} h={bar.h} delay={300 + i * 60} />
+                <Bar
+                  key={bar.label}
+                  label={bar.label}
+                  actual={bar.actual}
+                  projected={bar.projected}
+                  delay={300 + i * 60}
+                />
               ))}
             </div>
 
@@ -280,7 +683,7 @@ export default function Payments() {
               <div className="flex items-center gap-2">
                 <span
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: "rgba(1,44,126,0.4)" }}
+                  style={{ backgroundColor: "#012c7e" }}
                 />
                 <span className="text-[13px] text-[#444651]">
                   Actual Collections
@@ -289,7 +692,7 @@ export default function Payments() {
               <div className="flex items-center gap-2">
                 <span
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: "rgba(1,44,126,0.1)" }}
+                  style={{ backgroundColor: "#dc2626" }}
                 />
                 <span className="text-[13px] text-[#444651]">
                   Projected Revenue
@@ -343,7 +746,7 @@ export default function Payments() {
             <h4 className="font-display text-[20px] font-semibold text-[#1a1b21]">
               Payment Schedule &amp; Records
             </h4>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <div className="bg-gray-50 p-1 rounded-lg flex">
                 {["All Transactions", "Overdue", "Pending"].map((t) => (
                   <button
@@ -359,6 +762,20 @@ export default function Payments() {
                     {t}
                   </button>
                 ))}
+              </div>
+
+              <div className="relative">
+                <select
+                  value={paymentMethodFilter}
+                  onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                  className="bg-gray-50 border-none rounded-lg text-[13px] font-semibold text-[#444651] focus:ring-0 py-2 px-3"
+                >
+                  {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -386,7 +803,17 @@ export default function Payments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transactions.map((tx) => (
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-10 text-center text-[14px] text-[#444651]"
+                    >
+                      No transactions match the current filters.
+                    </td>
+                  </tr>
+                )}
+                {filteredTransactions.map((tx) => (
                   <tr
                     key={tx.id}
                     className="hover:bg-gray-50 transition-colors group"
@@ -417,24 +844,37 @@ export default function Payments() {
                       {tx.property}
                     </td>
                     <td className="px-6 py-4 text-[13px] font-semibold text-[#1a1b21]">
-                      {tx.amount}
+                      ${tx.amountValue.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="px-6 py-4 text-[15px] text-[#444651]">
-                      {tx.due}
+                      {fmt(tx.dueDate)}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${tx.statusClass}`}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${statusClassMap[tx.status]}`}
                       >
                         {tx.status}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400">
-                        <span className="material-symbols-outlined text-[20px]">
-                          more_vert
-                        </span>
-                      </button>
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => toggleMenu(`row-${tx.id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg text-gray-400"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            more_vert
+                          </span>
+                        </button>
+                        {openMenu === `row-${tx.id}` && (
+                          <DropdownMenu
+                            items={rowMenuItemsFor()}
+                            onSelect={(item) => handleRowAction(item, tx)}
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -444,7 +884,7 @@ export default function Payments() {
 
           <div className="p-4 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4 px-6">
             <p className="text-[13px] text-[#444651]">
-              Showing 1-10 of 1,248 transactions
+              Showing {filteredTransactions.length} of {rawTransactions.length} transactions
             </p>
             <div className="flex items-center gap-4">
               <button
@@ -456,7 +896,7 @@ export default function Payments() {
                 </span>
               </button>
               <span className="text-[13px] font-semibold text-[#1a1b21]">
-                Page 1 of 125
+                Page 1 of 1
               </span>
               <button className="p-2 border border-gray-200 rounded-lg bg-white">
                 <span className="material-symbols-outlined text-[20px]">
@@ -470,7 +910,6 @@ export default function Payments() {
         <div className="h-4" />
       </div>
 
-      {/* Contextual FAB */}
       <button
         className="fixed bottom-8 right-8 w-14 h-14 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all group z-50"
         style={{ backgroundColor: "#012c7e" }}
@@ -485,6 +924,14 @@ export default function Payments() {
           New Collection
         </span>
       </button>
+
+      {modal && (
+        <ConfirmationModal
+          title={modal.title}
+          message={modal.message}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
   );
 }

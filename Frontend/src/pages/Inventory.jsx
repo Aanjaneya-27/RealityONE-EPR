@@ -33,6 +33,7 @@ import {
   Check,
   X,
   Move,
+  CalendarCheck,
 } from "lucide-react";
 
 const TABS = ["Villas", "Apartments", "Duplexes"];
@@ -43,6 +44,13 @@ const PRICE_RANGES = [
   { label: "$100k - $250k", min: 100000, max: 250000 },
   { label: "$250k - $500k", min: 250000, max: 500000 },
   { label: "$500k+", min: 500000, max: Infinity },
+];
+
+const STATUS_FILTERS = [
+  { label: "All Units", value: "All" },
+  { label: "Available", value: "Available" },
+  { label: "Booked", value: "Booked" },
+  { label: "Reserved", value: "Booked" },
 ];
 
 const EMERALD_BAY_PROPERTIES = [
@@ -514,17 +522,140 @@ const SPECS = [
 
 function StatusBadge({ status }) {
   const map = {
-    Available: "bg-[#16a34a]", // emerald-600 replacement
+    Available: "bg-[#16a34a]", 
     Booked: "bg-amber-500",
   };
   return (
-    <div className={`absolute top-4 right-4 ${map[status]} text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider`}>
+    <div
+      title={status === "Booked" ? "Status: Booked / Reserved" : "Status: Available"}
+      className={`absolute top-4 right-4 ${map[status]} text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider`}
+    >
       {status}
     </div>
   );
 }
 
-function PropertyCard({ p, onViewDetails }) {
+function BookingModal({ property, onClose }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [depositAcknowledged, setDepositAcknowledged] = useState(false);
+
+  if (!property) return null;
+
+  const handleConfirm = () => {
+    if (!depositAcknowledged) return;
+    setConfirmed(true);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white rounded-[24px] shadow-2xl w-full max-w-lg overflow-hidden border border-[#c4c6d3]">
+        <div className="relative h-36 overflow-hidden">
+          <img src={property.image} alt={property.title} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#012c7e]/90 via-[#012c7e]/30 to-transparent"></div>
+          <button
+            onClick={onClose}
+            title="Close"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/20 flex items-center justify-center hover:bg-black/60 transition-colors"
+          >
+            <X size={18} />
+          </button>
+          <div className="absolute bottom-4 left-5">
+            <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest">Quick Booking</p>
+            <h4 className="text-white text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              {property.title}
+            </h4>
+          </div>
+        </div>
+
+        {!confirmed ? (
+          <div className="p-6">
+            <div className="flex items-center gap-2 text-[#444651] text-sm mb-5">
+              <MapPin size={16} className="text-[#012c7e]" />
+              {property.location}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div className="bg-[#f4f3fa] p-3 rounded-xl border border-[#e3e2e9]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#747683] mb-1">Unit ID</p>
+                <p className="text-sm font-bold text-[#1a1b21]">#{property.id}</p>
+              </div>
+              <div className="bg-[#f4f3fa] p-3 rounded-xl border border-[#e3e2e9]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#747683] mb-1">Unit Type</p>
+                <p className="text-sm font-bold text-[#1a1b21]">{property.type}</p>
+              </div>
+              <div className="bg-[#f4f3fa] p-3 rounded-xl border border-[#e3e2e9]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#747683] mb-1">Area</p>
+                <p className="text-sm font-bold text-[#1a1b21]">{property.area}</p>
+              </div>
+              <div className="bg-[#f4f3fa] p-3 rounded-xl border border-[#e3e2e9]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#747683] mb-1">Facing</p>
+                <p className="text-sm font-bold text-[#1a1b21]">{property.facing}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center bg-[#012c7e] text-white p-4 rounded-xl mb-5">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#a0b6ff]">Total Price</span>
+              <span className="text-xl font-bold">{property.price}</span>
+            </div>
+
+            <label className="flex items-start gap-2 text-xs text-[#444651] font-medium mb-5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={depositAcknowledged}
+                onChange={(e) => setDepositAcknowledged(e.target.checked)}
+                className="mt-0.5 accent-[#012c7e]"
+              />
+              I understand this booking requires a 10% initial deposit and locks this unit for 48 hours.
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl text-sm font-semibold hover:bg-[#eeedf5] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={!depositAcknowledged}
+                title={depositAcknowledged ? "Confirm booking" : "Acknowledge the deposit terms to continue"}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${
+                  depositAcknowledged
+                    ? "bg-[#012c7e] text-white hover:bg-[#254495]"
+                    : "bg-[#eeedf5] text-[#747683] cursor-not-allowed"
+                }`}
+              >
+                <CalendarCheck size={18} /> Confirm Booking
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#dcfce7] text-[#15803d] flex items-center justify-center">
+              <Check size={30} />
+            </div>
+            <h4 className="font-bold text-xl text-[#1a1b21] mb-2" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Booking Locked In
+            </h4>
+            <p className="text-sm text-[#444651] mb-6">
+              {property.title} at {property.location} has been reserved. Our advisor will reach out to
+              finalize the paperwork and deposit.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 bg-[#012c7e] text-white rounded-xl text-sm font-bold hover:bg-[#254495] transition-all shadow-sm"
+            >
+              Done
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PropertyCard({ p, onViewDetails, onQuickBook }) {
   const booked = p.status === "Booked";
   return (
     <div className={`bg-white border border-[#c4c6d3] rounded-[24px] overflow-hidden shadow-sm hover:shadow-md transition-all group flex flex-col ${booked ? "opacity-90" : ""}`}>
@@ -546,45 +677,57 @@ function PropertyCard({ p, onViewDetails }) {
             <p className="text-[#444651] text-sm">{p.location}</p>
           </div>
           {booked ? (
-            <div className="flex items-center gap-2 text-amber-600">
+            <div title="This unit is reserved and locked for booking" className="flex items-center gap-2 text-amber-600">
               <ShieldCheck size={18} />
               <span className="text-[10px] font-bold">RESERVED</span>
             </div>
           ) : (
-            <button className="w-10 h-10 rounded-full border border-[#c4c6d3] flex items-center justify-center hover:bg-[#eeedf5] transition-colors">
+            <button
+              title="Add to Wishlist"
+              className="w-10 h-10 rounded-full border border-[#c4c6d3] flex items-center justify-center hover:bg-[#eeedf5] transition-colors"
+            >
               <Heart size={18} />
             </button>
           )}
         </div>
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="flex items-center gap-2">
+          <div title={`Built-up area: ${p.area}`} className="flex items-center gap-2">
             <Ruler size={18} className="text-[#747683]" />
             <span className="text-sm font-semibold">{p.area}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div title={`Orientation: ${p.facing}`} className="flex items-center gap-2">
             <Compass size={18} className="text-[#747683]" />
             <span className="text-sm font-semibold">{p.facing}</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-8">
           {p.tags.map((t) => (
-            <span key={t} className="px-2 py-1 bg-[#eeedf5] rounded text-[10px] font-bold text-[#444651]">
+            <span key={t} title={t} className="px-2 py-1 bg-[#eeedf5] rounded text-[10px] font-bold text-[#444651]">
               {t}
             </span>
           ))}
         </div>
         <div className="mt-auto flex gap-2">
           {booked ? (
-            <button className="flex-1 py-2.5 bg-[#eeedf5] text-[#444651] rounded-xl text-sm font-semibold cursor-not-allowed">
+            <button
+              disabled
+              title="This unit is already reserved"
+              className="flex-1 py-2.5 bg-[#eeedf5] text-[#444651] rounded-xl text-sm font-semibold cursor-not-allowed"
+            >
               Locked for Booking
             </button>
           ) : (
-            <button className="flex-1 py-2.5 bg-[#012c7e] text-white rounded-xl text-sm font-semibold hover:bg-[#254495] transition-all shadow-sm">
+            <button
+              onClick={() => onQuickBook(p)}
+              title="Open booking confirmation for this unit"
+              className="flex-1 py-2.5 bg-[#012c7e] text-white rounded-xl text-sm font-semibold hover:bg-[#254495] transition-all shadow-sm"
+            >
               Quick Book
             </button>
           )}
           <button
             onClick={() => onViewDetails(p)}
+            title="View Details"
             className="px-3 py-2.5 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl hover:bg-[#eeedf5] transition-all"
           >
             <Eye size={20} />
@@ -599,6 +742,9 @@ function InventoryView({ onViewDetails }) {
   const [activeProject, setActiveProject] = useState(PROJECT_NAMES[0]);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [priceFilter, setPriceFilter] = useState(PRICE_RANGES[0].label);
+  const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0].label);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [quickBookProperty, setQuickBookProperty] = useState(null);
 
   const currentProject = PROJECTS[activeProject];
 
@@ -616,9 +762,20 @@ function InventoryView({ onViewDetails }) {
   }
 
   const selectedRange = PRICE_RANGES.find((r) => r.label === priceFilter) || PRICE_RANGES[0];
-  const filteredProperties = currentProject.properties.filter(
-    (p) => p.type === TAB_TYPE_MAP[activeTab] && p.priceValue >= selectedRange.min && p.priceValue <= selectedRange.max
-  );
+  const selectedStatus = STATUS_FILTERS.find((s) => s.label === statusFilter) || STATUS_FILTERS[0];
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const filteredProperties = currentProject.properties.filter((p) => {
+    const matchesTab = p.type === TAB_TYPE_MAP[activeTab];
+    const matchesPrice = p.priceValue >= selectedRange.min && p.priceValue <= selectedRange.max;
+    const matchesStatus = selectedStatus.value === "All" || p.status === selectedStatus.value;
+    const matchesSearch =
+      !normalizedQuery ||
+      p.id.toLowerCase().includes(normalizedQuery) ||
+      p.title.toLowerCase().includes(normalizedQuery) ||
+      p.location.toLowerCase().includes(normalizedQuery);
+    return matchesTab && matchesPrice && matchesStatus && matchesSearch;
+  });
 
   const handleSelectProject = (name) => {
     setActiveProject(name);
@@ -645,10 +802,10 @@ function InventoryView({ onViewDetails }) {
             </p>
           </div>
           <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl hover:bg-[#eeedf5] transition-all font-semibold text-sm shadow-sm">
+            <button title="Advanced filters" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl hover:bg-[#eeedf5] transition-all font-semibold text-sm shadow-sm">
               <Filter size={18} /> Filters
             </button>
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl hover:bg-[#eeedf5] transition-all font-semibold text-sm shadow-sm">
+            <button title="Export current inventory as PDF" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#c4c6d3] text-[#1a1b21] rounded-xl hover:bg-[#eeedf5] transition-all font-semibold text-sm shadow-sm">
               <Download size={18} /> Export PDF
             </button>
           </div>
@@ -664,6 +821,7 @@ function InventoryView({ onViewDetails }) {
             <div className="absolute top-6 right-6 z-10">
               <button
                 onClick={() => setProjectMenuOpen((o) => !o)}
+                title="Switch project"
                 className="flex items-center gap-2 bg-white/95 backdrop-blur px-4 py-2 rounded-xl text-xs font-bold text-[#012c7e] border border-[#c4c6d3]/60 shadow-sm hover:bg-white transition-all"
               >
                 <Filter size={14} />
@@ -700,15 +858,15 @@ function InventoryView({ onViewDetails }) {
             </div>
 
             <div className="absolute bottom-6 left-6 z-10 bg-white/80 backdrop-blur-md border border-[#e3e2e9] p-4 rounded-xl flex items-center gap-4 sm:gap-6 flex-wrap shadow-lg">
-              <div className="flex items-center gap-2">
+              <div title="Units currently available for booking" className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#16a34a]"></div>
                 <span className="text-xs font-bold text-[#1a1b21]">Available</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div title="Units booked or reserved by a buyer" className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                 <span className="text-xs font-bold text-[#1a1b21]">Booked</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div title="Units temporarily blocked from sale" className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#ba1a1a]"></div>
                 <span className="text-xs font-bold text-[#1a1b21]">Blocked</span>
               </div>
@@ -728,6 +886,7 @@ function InventoryView({ onViewDetails }) {
                     <button
                       key={p.id}
                       onClick={() => onViewDetails(p)}
+                      title={`${p.title} — ${p.status}`}
                       className={`absolute group/pin cursor-pointer transition-transform duration-200 hover:scale-110 hover:z-10 ${
                         isHorizonHeights ? "-translate-x-1/2 -translate-y-1/2" : ""
                       }`}
@@ -848,18 +1007,32 @@ function InventoryView({ onViewDetails }) {
                 </button>
               ))}
             </div>
-            <div className="flex gap-3 pb-4 md:pb-0 w-full md:w-auto">
+            <div className="flex gap-3 pb-4 md:pb-0 w-full md:w-auto flex-wrap">
               <div className="relative flex-1 md:w-64">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#747683]" />
                 <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  title="Search by unit ID, title, or location"
                   className="w-full bg-white border border-[#c4c6d3] rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-[#012c7e] outline-none shadow-sm"
                   placeholder="Search Unit ID..."
                   type="text"
                 />
               </div>
               <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                title="Filter by availability status"
+                className="bg-white border border-[#c4c6d3] rounded-xl px-4 py-2 text-sm font-medium text-[#444651] outline-none focus:ring-1 focus:ring-[#012c7e] shadow-sm"
+              >
+                {STATUS_FILTERS.map((s) => (
+                  <option key={s.label}>{s.label}</option>
+                ))}
+              </select>
+              <select
                 value={priceFilter}
                 onChange={(e) => setPriceFilter(e.target.value)}
+                title="Filter by price range"
                 className="bg-white border border-[#c4c6d3] rounded-xl px-4 py-2 text-sm font-medium text-[#444651] outline-none focus:ring-1 focus:ring-[#012c7e] shadow-sm"
               >
                 {PRICE_RANGES.map((r) => (
@@ -872,17 +1045,21 @@ function InventoryView({ onViewDetails }) {
           {filteredProperties.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredProperties.map((p) => (
-                <PropertyCard key={p.id} p={p} onViewDetails={onViewDetails} />
+                <PropertyCard key={p.id} p={p} onViewDetails={onViewDetails} onQuickBook={setQuickBookProperty} />
               ))}
             </div>
           ) : (
             <div className="bg-white border border-dashed border-[#c4c6d3] rounded-2xl py-16 text-center">
-              <p className="text-sm font-semibold text-[#1a1b21]">No units in this price range.</p>
-              <p className="text-xs text-[#444651] mt-1">Try a different tab or widen the price range.</p>
+              <p className="text-sm font-semibold text-[#1a1b21]">No units match your search or filters.</p>
+              <p className="text-xs text-[#444651] mt-1">Try a different tab, status, price range, or search term.</p>
             </div>
           )}
         </section>
       </main>
+
+      {quickBookProperty && (
+        <BookingModal property={quickBookProperty} onClose={() => setQuickBookProperty(null)} />
+      )}
     </div>
   );
 }
@@ -893,6 +1070,7 @@ function DetailsView({ property, onBack, mapImage }) {
   const [tourOpen, setTourOpen] = useState(false);
   const [tourIndex, setTourIndex] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [quickBookOpen, setQuickBookOpen] = useState(false);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const booked = property?.status === "Booked";
 
@@ -944,6 +1122,7 @@ function DetailsView({ property, onBack, mapImage }) {
             </div>
             <div className="flex items-center gap-3 mb-2">
               <span
+                title={booked ? "Status: Booked / Reserved" : "Status: Available"}
                 className={`px-3 py-1 text-[11px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1.5 border ${
                   booked
                     ? "bg-amber-50 text-amber-600 border-amber-500/20"
@@ -966,13 +1145,22 @@ function DetailsView({ property, onBack, mapImage }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-sm font-semibold hover:bg-[#f4f3fa] transition-all shadow-sm text-[#444651]">
+            <button title="Print a brochure for this unit" className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-sm font-semibold hover:bg-[#f4f3fa] transition-all shadow-sm text-[#444651]">
               <Printer size={18} /> Print Brochure
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-sm font-semibold hover:bg-[#f4f3fa] transition-all shadow-sm text-[#444651]">
+            <button title="View the master site plan" className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-sm font-semibold hover:bg-[#f4f3fa] transition-all shadow-sm text-[#444651]">
               <MapIcon size={18} /> View Plan
             </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-[#012c7e] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#012c7e]/20 hover:scale-[1.02] active:scale-95 transition-all">
+            <button
+              onClick={() => !booked && setQuickBookOpen(true)}
+              disabled={booked}
+              title={booked ? "This unit is already reserved" : "Lock this unit with a booking"}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all ${
+                booked
+                  ? "bg-[#eeedf5] text-[#747683] shadow-none cursor-not-allowed"
+                  : "bg-[#012c7e] text-white shadow-[#012c7e]/20 hover:scale-[1.02] active:scale-95"
+              }`}
+            >
               <Lock size={18} /> Lock Booking
             </button>
           </div>
@@ -992,19 +1180,21 @@ function DetailsView({ property, onBack, mapImage }) {
                 <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => setActiveThumb((i) => (i - 1 + galleryImages.length) % galleryImages.length)}
+                    title="Previous photo"
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/30 backdrop-blur-md text-white border border-white/40 flex items-center justify-center hover:bg-white/50 transition-colors shadow-lg"
                   >
                     <ChevronLeft size={20} />
                   </button>
                   <button
                     onClick={() => setActiveThumb((i) => (i + 1) % galleryImages.length)}
+                    title="Next photo"
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/30 backdrop-blur-md text-white border border-white/40 flex items-center justify-center hover:bg-white/50 transition-colors shadow-lg"
                   >
                     <ChevronRight size={20} />
                   </button>
                 </div>
                 <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 flex gap-2 sm:gap-3 flex-wrap">
-                  <span className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2">
+                  <span title="Photo count" className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2">
                     <Camera size={16} /> {activeThumb + 1}/{galleryImages.length} Photos
                   </span>
                   <button
@@ -1013,6 +1203,7 @@ function DetailsView({ property, onBack, mapImage }) {
                       setPan({ x: 0, y: 0 });
                       setTourOpen(true);
                     }}
+                    title="Launch immersive virtual tour"
                     className="px-3 py-2 bg-black/60 backdrop-blur-md text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-2 hover:bg-black/80 cursor-pointer transition-colors"
                   >
                     <RotateCw size={16} /> Virtual Tour
@@ -1022,6 +1213,7 @@ function DetailsView({ property, onBack, mapImage }) {
               <div className="mt-2 grid grid-cols-5 gap-2">
                 <div
                   onClick={() => setActiveThumb(0)}
+                  title="Exterior"
                   className={`aspect-video rounded-lg overflow-hidden cursor-pointer transition-all relative ${
                     activeThumb === 0 ? "border-2 border-[#012c7e] ring-2 ring-[#012c7e]/10" : "hover:opacity-80"
                   }`}
@@ -1032,6 +1224,7 @@ function DetailsView({ property, onBack, mapImage }) {
                   <div
                     key={t.seed}
                     onClick={() => setActiveThumb(i + 1)}
+                    title={t.label}
                     className={`aspect-video rounded-lg overflow-hidden cursor-pointer transition-all relative ${
                       activeThumb === i + 1 ? "border-2 border-[#012c7e] ring-2 ring-[#012c7e]/10" : "hover:opacity-80"
                     }`}
@@ -1062,7 +1255,7 @@ function DetailsView({ property, onBack, mapImage }) {
               <h3 className="font-bold text-xl text-[#012c7e] mb-6" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Unit Features &amp; Amenities</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
                 {AMENITIES.map(({ icon: Icon, label }) => (
-                  <div key={label} className="flex flex-col items-center text-center group cursor-default">
+                  <div key={label} title={label} className="flex flex-col items-center text-center group cursor-default">
                     <div className="w-14 h-14 rounded-2xl bg-[#f4f3fa] border border-[#e3e2e9] flex items-center justify-center mb-3 text-[#012c7e] group-hover:bg-[#012c7e] group-hover:text-white transition-all duration-300 shadow-sm">
                       <Icon size={24} />
                     </div>
@@ -1113,7 +1306,7 @@ function DetailsView({ property, onBack, mapImage }) {
             <div className="bg-white p-6 rounded-2xl border border-[#c4c6d3] shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-xs uppercase tracking-widest font-bold text-[#444651]">Master Plan</h4>
-                <button className="text-[#012c7e] text-xs font-bold hover:underline">Full View</button>
+                <button title="Open full master plan view" className="text-[#012c7e] text-xs font-bold hover:underline">Full View</button>
               </div>
               <div className="aspect-square rounded-xl overflow-hidden relative border border-[#c4c6d3] group">
                 <img
@@ -1122,6 +1315,7 @@ function DetailsView({ property, onBack, mapImage }) {
                   src={mapImage || "https://images.unsplash.com/photo-1524813686514-a57563d77965?q=80&w=700&auto=format&fit=crop"}
                 />
                 <div
+                  title={property?.title || "Unit location"}
                   className="absolute w-6 h-6 -ml-3 -mt-3"
                   style={{ top: property?.pin?.top || "35%", left: property?.pin?.left || "55%" }}
                 >
@@ -1149,10 +1343,10 @@ function DetailsView({ property, onBack, mapImage }) {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center gap-2 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-[#012c7e] font-bold text-xs hover:bg-[#f4f3fa] transition-colors shadow-sm">
+                <button title="Call advisor" className="flex items-center justify-center gap-2 py-2.5 bg-white border border-[#c4c6d3] rounded-xl text-[#012c7e] font-bold text-xs hover:bg-[#f4f3fa] transition-colors shadow-sm">
                   <Phone size={16} /> Call
                 </button>
-                <button className="flex items-center justify-center gap-2 py-2.5 bg-[#012c7e] text-white border border-[#012c7e] rounded-xl font-bold text-xs hover:bg-[#254495] transition-colors shadow-sm">
+                <button title="Email advisor" className="flex items-center justify-center gap-2 py-2.5 bg-[#012c7e] text-white border border-[#012c7e] rounded-xl font-bold text-xs hover:bg-[#254495] transition-colors shadow-sm">
                   <Mail size={16} /> Email
                 </button>
               </div>
@@ -1187,11 +1381,24 @@ function DetailsView({ property, onBack, mapImage }) {
           <button className="p-2.5 bg-white border border-[#c4c6d3] rounded-xl hover:bg-[#f4f3fa] transition-colors shadow-sm text-[#444651]" title="Share Detail">
             <Share2 size={20} />
           </button>
-          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#012c7e] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#012c7e]/20 hover:scale-[1.02] active:scale-95 transition-all whitespace-nowrap">
+          <button
+            onClick={() => !booked && setQuickBookOpen(true)}
+            disabled={booked}
+            title={booked ? "This unit is already reserved" : "Generate a price quotation for this unit"}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold shadow-lg transition-all whitespace-nowrap ${
+              booked
+                ? "bg-[#eeedf5] text-[#747683] shadow-none cursor-not-allowed"
+                : "bg-[#012c7e] text-white shadow-[#012c7e]/20 hover:scale-[1.02] active:scale-95"
+            }`}
+          >
             Generate Quotation
           </button>
         </div>
       </div>
+
+      {quickBookOpen && property && !booked && (
+        <BookingModal property={property} onClose={() => setQuickBookOpen(false)} />
+      )}
 
       
       {tourOpen && (
@@ -1224,6 +1431,7 @@ function DetailsView({ property, onBack, mapImage }) {
             </div>
             <button
               onClick={() => setTourOpen(false)}
+              title="Close virtual tour"
               className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white border border-white/20 flex items-center justify-center hover:bg-black/70 transition-colors"
             >
               <X size={20} />
@@ -1241,6 +1449,7 @@ function DetailsView({ property, onBack, mapImage }) {
               setTourIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length);
               setPan({ x: 0, y: 0 });
             }}
+            title="Previous room"
             className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors"
           >
             <ChevronLeft size={22} />
@@ -1250,6 +1459,7 @@ function DetailsView({ property, onBack, mapImage }) {
               setTourIndex((i) => (i + 1) % galleryImages.length);
               setPan({ x: 0, y: 0 });
             }}
+            title="Next room"
             className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors"
           >
             <ChevronRight size={22} />
@@ -1264,6 +1474,7 @@ function DetailsView({ property, onBack, mapImage }) {
                     setTourIndex(i);
                     setPan({ x: 0, y: 0 });
                   }}
+                  title={roomLabels[i]}
                   className={`flex-shrink-0 w-16 h-12 sm:w-20 sm:h-14 rounded-lg overflow-hidden border-2 transition-all relative ${
                     tourIndex === i ? "border-white scale-105" : "border-transparent opacity-60 hover:opacity-90"
                   }`}

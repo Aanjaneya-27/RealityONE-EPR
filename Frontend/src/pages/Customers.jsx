@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import axios from "axios"
-
+import axios from "axios";
 
 const COLORS = {
   primary: "#012c7e",
@@ -74,6 +73,10 @@ const BASE_CUSTOMERS = [
       { icon: "badge", name: "PAN Card", meta: "ABCDE1234F • PDF • 1.2MB" },
       { icon: "fingerprint", name: "National ID", meta: "[Aadhaar Redacted] • JPG • 2.4MB" },
     ],
+    payments: [
+      { invoiceId: "INV-8091", date: "Yesterday", amount: "$450,000", status: "Paid", method: "Wire Transfer" },
+      { invoiceId: "INV-8002", date: "10 Oct 2023", amount: "$30,000", status: "Paid", method: "Credit Card" },
+    ]
   },
   {
     id: "CUST-90125",
@@ -97,7 +100,10 @@ const BASE_CUSTOMERS = [
     activity: [
       { color: "secondary", title: "Site Visit Scheduled", sub: "Property: Emerald Gardens", time: "Yesterday, 4:20 PM" }
     ],
-    documents: [],
+    documents: [
+      { icon: "description", name: "Inquiry Form", meta: "Signed • PDF • 450KB" }
+    ],
+    payments: []
   },
   {
     id: "CUST-90126",
@@ -119,7 +125,12 @@ const BASE_CUSTOMERS = [
     nominee: { name: "Tom Jenkins", relation: "Spouse", verified: true },
     agent: DEFAULT_AGENT,
     activity: [],
-    documents: [],
+    documents: [
+      { icon: "request_quote", name: "Tax Declaration", meta: "Verified • PDF • 3.1MB" }
+    ],
+    payments: [
+      { invoiceId: "INV-7721", date: "24 Oct 2023", amount: "$1,250,000", status: "Paid", method: "Bank Draft" }
+    ]
   },
 ];
 
@@ -148,6 +159,7 @@ const EXTRA_CUSTOMERS = Array.from({ length: 37 }).map((_, i) => ({
   agent: DEFAULT_AGENT,
   activity: [],
   documents: [],
+  payments: []
 }));
 
 const INITIAL_CUSTOMERS = [...BASE_CUSTOMERS, ...EXTRA_CUSTOMERS];
@@ -339,6 +351,9 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   const [page, setPage] = useState(1);
   const pageSize = 4; 
 
+  // TABLE SORTING STATE
+  const [sortConfig, setSortConfig] = useState({ field: null, direction: 'asc' });
+
   const inValueRange = (val, range) => {
     if (range === "Any Range") return true;
     if (range === "$0 - $50k") return val <= 50000;
@@ -348,20 +363,43 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
     return true;
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return customers.filter((c) => {
+  const handleSort = (field) => {
+    setSortConfig((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const filteredAndSorted = useMemo(() => {
+    let result = customers.filter((c) => {
+      const q = search.trim().toLowerCase();
       const matchesSearch = !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.project.toLowerCase().includes(q);
       const matchesProject = appliedFilters.project === "All Projects" || c.project === appliedFilters.project;
       const matchesStatus = appliedFilters.status === "All Statuses" || c.status === appliedFilters.status;
       const matchesValue = inValueRange(c.collectionValue, appliedFilters.value);
       return matchesSearch && matchesProject && matchesStatus && matchesValue;
     });
-  }, [customers, search, appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (sortConfig.field) {
+      result.sort((a, b) => {
+        let aVal = a[sortConfig.field];
+        let bVal = b[sortConfig.field];
+        
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [customers, search, appliedFilters, sortConfig]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pageRows = filteredAndSorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const allVisibleSelected = pageRows.length > 0 && pageRows.every((c) => selectedIds.includes(c.id));
 
@@ -378,7 +416,7 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   const applyFilters = () => {
     setAppliedFilters({ project: draftProject, status: draftStatus, value: draftValue });
     setPage(1);
-    addToast(`Filters applied — ${filtered.length} matches found`, "filter_alt");
+    addToast(`Filters applied — ${filteredAndSorted.length} matches found`, "filter_alt");
   };
 
   const handleDeleteOne = (id) => {
@@ -388,7 +426,7 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
     setOpenMenuId(null);
   };
 
-const handleAddCustomer = async (form) => {
+  const handleAddCustomer = async (form) => {
     const finalAvatar = form.avatar && form.avatar.trim() !== "" 
       ? form.avatar 
       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.name)}&backgroundColor=012c7e`;
@@ -486,9 +524,27 @@ const handleAddCustomer = async (form) => {
               <thead>
                 <tr style={{ background: COLORS.surfaceContainerLow, borderBottom: `1px solid ${COLORS.outlineVariant}` }}>
                   <th className="py-4 pl-6 pr-3 w-12"><input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded cursor-pointer" /></th>
-                  {["Customer Name", "Active Project", "Units", "Total Collection", "Status", "Last Activity", ""].map((h, i) => (
-                    <th key={i} className={`py-4 px-3 text-[12px] font-semibold uppercase tracking-wider ${h === "Total Collection" ? "text-right" : ""}`} style={{ color: COLORS.onSurfaceVariant }}>{h}</th>
-                  ))}
+                  
+                  {/* SORTABLE HEADERS */}
+                  <th onClick={() => handleSort('name')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center gap-1">Customer Name <Icon name="unfold_more" className="!text-[14px]" /></div>
+                  </th>
+                  <th onClick={() => handleSort('project')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center gap-1">Active Project <Icon name="unfold_more" className="!text-[14px]" /></div>
+                  </th>
+                  <th onClick={() => handleSort('units')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center gap-1">Units <Icon name="unfold_more" className="!text-[14px]" /></div>
+                  </th>
+                  <th onClick={() => handleSort('collectionValue')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none text-right" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center justify-end gap-1"><Icon name="unfold_more" className="!text-[14px]" /> Total Collection</div>
+                  </th>
+                  <th onClick={() => handleSort('status')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center gap-1">Status <Icon name="unfold_more" className="!text-[14px]" /></div>
+                  </th>
+                  <th onClick={() => handleSort('lastActivity')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
+                    <div className="flex items-center gap-1">Last Activity <Icon name="unfold_more" className="!text-[14px]" /></div>
+                  </th>
+                  <th className="py-4 px-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: COLORS.outlineVariant }}>
@@ -542,7 +598,7 @@ const handleAddCustomer = async (form) => {
           </div>
 
           <div className="px-6 py-4 flex justify-between items-center flex-wrap gap-3" style={{ background: COLORS.surfaceContainerLow, borderTop: `1px solid ${COLORS.outlineVariant}` }}>
-            <span className="text-sm font-medium" style={{ color: COLORS.onSurfaceVariant }}>Showing <b>{filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)}</b> of {filtered.length}</span>
+            <span className="text-sm font-medium" style={{ color: COLORS.onSurfaceVariant }}>Showing <b>{filteredAndSorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredAndSorted.length)}</b> of {filteredAndSorted.length}</span>
             <div className="flex gap-2 items-center">
               <button disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 bg-white shadow-sm hover:shadow active:scale-95 transition-all" style={{ border: `1px solid ${COLORS.outlineVariant}` }}><Icon name="chevron_left" className="!text-[16px]" /> Prev</button>
               <div className="flex gap-1 overflow-x-auto max-w-[200px] hide-scrollbar">
@@ -671,8 +727,8 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
         {tab === "timeline" && (
           <div className="bg-white rounded-xl p-6 shadow-sm" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
             <div className="space-y-8">
-              {customer.activity.length === 0 && <p className="text-gray-500 py-8 text-center">No activity recorded yet.</p>}
-              {customer.activity.map((a, i) => (
+              {(!customer.activity || customer.activity.length === 0) && <p className="text-gray-500 py-8 text-center">No activity recorded yet.</p>}
+              {customer.activity?.map((a, i) => (
                 <div key={i} className="relative pl-8" style={{ borderLeft: i !== customer.activity.length - 1 ? `2px solid ${COLORS.outlineVariant}` : "none", marginLeft: "1px" }}>
                   <div className="absolute left-[-7px] top-1 w-3 h-3 rounded-full" style={{ background: ACTIVITY_DOT[a.color] || COLORS.primary, boxShadow: `0 0 0 4px ${ACTIVITY_DOT[a.color] || COLORS.primary}1a` }}></div>
                   <div className="flex justify-between items-start flex-wrap gap-2">
@@ -694,10 +750,69 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
           </div>
         )}
 
-        {tab !== "timeline" && (
-          <div className="p-10 text-center text-gray-500 bg-white rounded-2xl border">
-            <Icon name={tabs.find(t=>t.id===tab).icon} className="!text-4xl mb-3 opacity-50" />
-            <p>Detailed {tab} data for {customer.name} will appear here.</p>
+        {/* DOCUMENTS TAB RENDERING */}
+        {tab === "documents" && (
+          <div className="bg-white rounded-xl p-6 shadow-sm" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
+            {customer.documents?.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {customer.documents.map((doc, idx) => (
+                  <div key={idx} className="p-4 rounded-xl flex items-center justify-between transition-colors hover:bg-black/5" style={{ border: `1px solid ${COLORS.outlineVariant}`, background: COLORS.surfaceContainerLowest }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: COLORS.surfaceContainer, color: COLORS.primary }}>
+                        <Icon name={doc.icon || "description"} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs text-[#1a1b21]">{doc.name}</p>
+                        <p className="text-[10px]" style={{ color: COLORS.onSurfaceVariant }}>{doc.meta || "PDF • 1.2MB"}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => addToast(`Downloading ${doc.name}...`, "download")} className="p-2 rounded-lg transition-colors hover:bg-black/5" style={{ color: COLORS.primary }}>
+                      <Icon name="download" className="!text-[20px]" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 py-8 text-center">No documents available.</p>
+            )}
+          </div>
+        )}
+
+        {/* PAYMENTS TAB RENDERING */}
+        {tab === "payments" && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${COLORS.outlineVariant}` }}>
+            {customer.payments?.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead>
+                    <tr style={{ background: COLORS.surfaceContainerLow, borderBottom: `1px solid ${COLORS.outlineVariant}` }}>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>Invoice ID</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>Date</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>Amount</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>Method</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider" style={{ color: COLORS.onSurfaceVariant }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: COLORS.outlineVariant }}>
+                    {customer.payments.map((pay, idx) => (
+                      <tr key={idx} className="hover:bg-black/[0.02] transition-colors">
+                        <td className="px-6 py-4 font-bold" style={{ color: COLORS.primary }}>{pay.invoiceId}</td>
+                        <td className="px-6 py-4 text-[#1a1b21] font-medium">{pay.date}</td>
+                        <td className="px-6 py-4 font-mono font-bold text-[#1a1b21]">{pay.amount}</td>
+                        <td className="px-6 py-4 text-[13px]" style={{ color: COLORS.onSurfaceVariant }}>{pay.method}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${pay.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {pay.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 py-8 text-center">No payment records found.</p>
+            )}
           </div>
         )}
       </div>
@@ -716,6 +831,7 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
     </div>
   );
 }
+
 export default function RealtyOneCRM() {
   const [view, setView] = useState("database");
   const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);

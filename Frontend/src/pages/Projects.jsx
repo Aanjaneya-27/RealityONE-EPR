@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building,
   Wallet,
@@ -16,8 +16,12 @@ import {
   ChevronRight,
   ArrowRight,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   Plus,
   Filter,
+  Search,
   Download
 } from "lucide-react";
 
@@ -127,6 +131,163 @@ function fmt(n) {
   return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US");
 }
 
+function fmtCompact(n) {
+  if (n >= 1000000) return "$" + (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return "$" + (n / 1000).toFixed(1) + "K";
+  return "$" + n;
+}
+
+// ---------------------------------------------------------------------------
+// Single source of truth for every project shown in the cards + the table.
+// Deriving both views from this array is what makes filters/search/sort
+// apply consistently everywhere, instead of living only on the static cards.
+// ---------------------------------------------------------------------------
+const projectsData = [
+  {
+    id: "atrium-plaza",
+    title: "The Atrium Plaza",
+    type: "Commercial",
+    imageUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop",
+    badgeLabel: "Commercial / Mix-Use",
+    badgeColor: c.primary,
+    location: "Downtown Financial District, Sector 4",
+    completion: "Oct 2025",
+    milestonePercent: 68,
+    accent: c.primary,
+    steps: [
+      { status: "done", label: "Foundation & Substructure", sub: "Completed on Mar 12" },
+      { status: "active", label: "External Facade Installation", sub: "45%" },
+      { status: "pending", label: "Interior Fit-out" },
+    ],
+    budgetSpentNumber: 142800000,
+    budgetTotalNumber: 185000000,
+    budgetVarianceLabel: "-2.4% Under Budget",
+    budgetVarianceColor: "#16a34a",
+    budgetFillPercent: 77,
+    unitsTotal: 112,
+    unitsFilled: 84,
+    inventorySub: "75% Pre-sold",
+    inventorySubColor: "#16a34a",
+    yieldValue: "12.4%",
+    yieldSub: "Target 11.5%",
+    yieldSubColor: c.primary,
+    avatars: [
+      "https://i.pravatar.cc/100?img=11",
+      "https://i.pravatar.cc/100?img=12",
+    ],
+  },
+  {
+    id: "horizon-heights",
+    title: "Horizon Heights",
+    type: "Residential",
+    imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2000&auto=format&fit=crop",
+    badgeLabel: "Residential / Luxury",
+    badgeColor: c.tertiaryContainer,
+    location: "North Bay Marina District",
+    completion: "Jan 2026",
+    milestonePercent: 32,
+    accent: c.secondary,
+    steps: [
+      { status: "done", label: "Permitting & Land Clearing", sub: "Completed on Dec 20" },
+      { status: "active", label: "Structural Superstructure", sub: "15%" },
+      { status: "pending", label: "MEP Rough-in" },
+    ],
+    budgetSpentNumber: 38200000,
+    budgetTotalNumber: 210000000,
+    budgetVarianceLabel: "+5.8% Variance",
+    budgetVarianceColor: c.error,
+    budgetFillPercent: 18,
+    budgetOverPercent: 5,
+    unitsTotal: 240,
+    unitsFilled: 112,
+    inventorySub: "46% Pre-sold",
+    inventorySubColor: c.primary,
+    yieldValue: "18.2%",
+    yieldSub: "Market Surge",
+    yieldSubColor: "#16a34a",
+    avatars: [
+      "https://i.pravatar.cc/100?img=33",
+      "https://i.pravatar.cc/100?img=47",
+    ],
+  },
+  {
+    id: "oakwood-estates",
+    title: "Oakwood Estates",
+    type: "Residential",
+    imageUrl: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=2070&auto=format&fit=crop",
+    badgeLabel: "Residential / Single-Family",
+    badgeColor: c.secondaryContainer,
+    location: "Oakwood Township, Lakeview Corridor",
+    completion: "May 2026",
+    milestonePercent: 74,
+    accent: c.secondaryContainer,
+    steps: [
+      { status: "done", label: "Roads & Utility Infrastructure", sub: "Completed on Aug 19" },
+      { status: "active", label: "Phase 1 Home Construction", sub: "60%" },
+      { status: "pending", label: "Landscaping & Amenities" },
+    ],
+    budgetSpentNumber: 71400000,
+    budgetTotalNumber: 96000000,
+    budgetVarianceLabel: "-1.1% Under Budget",
+    budgetVarianceColor: "#16a34a",
+    budgetFillPercent: 74,
+    unitsTotal: 24,
+    unitsFilled: 17,
+    inventorySub: "71% Pre-sold",
+    inventorySubColor: "#16a34a",
+    yieldValue: "10.8%",
+    yieldSub: "Target 10.0%",
+    yieldSubColor: c.secondaryContainer,
+    avatars: [
+      "https://i.pravatar.cc/100?img=15",
+      "https://i.pravatar.cc/100?img=25",
+    ],
+  },
+  {
+    id: "wellington-estate",
+    title: "Wellington Estate",
+    type: "Residential",
+    imageUrl: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop",
+    badgeLabel: "Residential / Luxury Estate",
+    badgeColor: c.tertiaryContainer,
+    location: "Wellington Hills, Private Enclave",
+    completion: "Apr 2027",
+    milestonePercent: 17,
+    accent: c.error,
+    steps: [
+      { status: "done", label: "Land Acquisition & Entitlements", sub: "Completed on Mar 5" },
+      { status: "active", label: "Site Prep & Foundation", sub: "20%" },
+      { status: "pending", label: "Gatehouse & Clubhouse Build" },
+    ],
+    budgetSpentNumber: 24600000,
+    budgetTotalNumber: 142000000,
+    budgetVarianceLabel: "On Budget",
+    budgetVarianceColor: "#16a34a",
+    budgetFillPercent: 17,
+    unitsTotal: 18,
+    unitsFilled: 4,
+    inventorySub: "22% Reserved",
+    inventorySubColor: c.primary,
+    yieldValue: "21.5%",
+    yieldSub: "Ultra-Luxury Tier",
+    yieldSubColor: "#16a34a",
+    avatars: [
+      "https://i.pravatar.cc/100?img=52",
+      "https://i.pravatar.cc/100?img=60",
+    ],
+  },
+];
+
+// A project is "Ready to Move" once construction is effectively complete.
+// Keeping this as a derived value (rather than a hardcoded field) is what
+// makes the status filter genuinely dynamic if milestone data changes.
+function getStatus(project) {
+  return project.milestonePercent >= 95 ? "Ready to Move" : "Under Construction";
+}
+
+const STATUS_OPTIONS = ["All Statuses", "Under Construction", "Ready to Move"];
+const TYPE_OPTIONS = ["All Types", "Commercial", "Residential"];
+
 const LedgerPage = ({ projectName, onBack }) => {
   const ledger = ledgers[projectName];
   const sorted = [...ledger.transactions].sort(
@@ -210,7 +371,6 @@ const LedgerPage = ({ projectName, onBack }) => {
     </div>
   );
 };
-
 
 const MetricCard = ({ icon: Icon, iconBg, iconColor, tag, tagBg, tagColor, label, value }) => (
   <div
@@ -351,7 +511,6 @@ const StatBox = ({ label, value, sub, subColor }) => (
   </div>
 );
 
-
 const ProjectCard = ({
   imageUrl, badgeLabel, badgeColor, title, location, completion, milestonePercent, accent, steps,
   budgetSpent, budgetTotal, budgetVarianceLabel, budgetVarianceColor, budgetFillPercent, budgetOverPercent,
@@ -479,17 +638,43 @@ const ProjectCard = ({
         className="font-bold text-sm hover:underline flex items-center gap-1"
         style={{ color: c.primary }}
       >
-        Full Project Ledger
+        View Full Project
         <ArrowRight size={14} />
       </button>
     </div>
   </div>
 );
 
+// Sortable column header used by the "All Projects" table below.
+const SortableHeader = ({ label, sortKey, activeKey, activeDir, onSort, align = "left" }) => {
+  const isActive = activeKey === sortKey;
+  const Icon = !isActive ? ArrowUpDown : activeDir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <th
+      className={`py-2 pr-3 font-bold select-none cursor-pointer ${align === "right" ? "text-right" : "text-left"}`}
+      style={{ color: isActive ? c.primary : c.onSurfaceVariant }}
+      onClick={() => onSort(sortKey)}
+    >
+      <span className={`inline-flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+        {label}
+        <Icon size={12} />
+      </span>
+    </th>
+  );
+};
 
 export default function Projects() {
   const [view, setView] = useState("projects"); // "projects" | "ledger"
   const [activeProject, setActiveProject] = useState(null);
+
+  // --- Filters & search --------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
+  const [typeFilter, setTypeFilter] = useState("All Types");
+
+  // --- Table sorting -------------------------------------------------------
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
 
   // Load Google Fonts
   useEffect(() => {
@@ -512,6 +697,56 @@ export default function Projects() {
     setView("ledger");
   };
 
+  // Every project enriched with a derived status, kept in one place so
+  // filters, cards, and the table all agree on the same value.
+  const enrichedProjects = useMemo(
+    () => projectsData.map((p) => ({ ...p, status: getStatus(p) })),
+    []
+  );
+
+  // Cards + table both read from this filtered list.
+  const filteredProjects = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return enrichedProjects.filter((p) => {
+      const matchesStatus = statusFilter === "All Statuses" || p.status === statusFilter;
+      const matchesType = typeFilter === "All Types" || p.type === typeFilter;
+      const matchesSearch =
+        query.length === 0 ||
+        p.title.toLowerCase().includes(query) ||
+        p.location.toLowerCase().includes(query) ||
+        p.type.toLowerCase().includes(query);
+      return matchesStatus && matchesType && matchesSearch;
+    });
+  }, [enrichedProjects, statusFilter, typeFilter, searchQuery]);
+
+  // Table-only sorting layer on top of the filtered list.
+  const sortedProjects = useMemo(() => {
+    const accessors = {
+      name: (p) => p.title.toLowerCase(),
+      units: (p) => p.unitsTotal,
+      value: (p) => p.budgetTotalNumber,
+      progress: (p) => p.milestonePercent,
+    };
+    const accessor = accessors[sortKey] || accessors.name;
+    const sorted = [...filteredProjects].sort((a, b) => {
+      const av = accessor(a);
+      const bv = accessor(b);
+      if (av < bv) return -1;
+      if (av > bv) return 1;
+      return 0;
+    });
+    return sortDir === "asc" ? sorted : sorted.reverse();
+  }, [filteredProjects, sortKey, sortDir]);
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
   if (view === "ledger" && activeProject) {
     return (
       <LedgerPage
@@ -523,8 +758,7 @@ export default function Projects() {
 
   return (
     <div className="min-h-screen w-full" style={{ background: c.background, color: c.onSurface, ...bodyFont }}>
-      
-      <main className="p-6 max-w-[1600px] mx-auto w-full">        
+      <main className="p-6 max-w-[1600px] mx-auto w-full">
         <div className="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
           <div>
             <p className="font-bold text-[13px] tracking-widest uppercase mb-1" style={{ color: c.primary }}>
@@ -539,16 +773,70 @@ export default function Projects() {
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border rounded-xl text-[13px] font-semibold hover:bg-black/5 transition-colors whitespace-nowrap"
               style={{ borderColor: c.outlineVariant }}
             >
-              <Filter size={16} />
-              Filter
-            </button>
-            <button
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border rounded-xl text-[13px] font-semibold hover:bg-black/5 transition-colors whitespace-nowrap"
-              style={{ borderColor: c.outlineVariant }}
-            >
               <Download size={16} />
               Export Report
             </button>
+          </div>
+        </div>
+
+        {/* Filters + search */}
+        <div
+          className="mb-6 p-4 rounded-[14px] border bg-white flex flex-col md:flex-row gap-3 md:items-center"
+          style={{ borderColor: c.outlineVariant }}
+        >
+          <div
+            className="flex-1 flex items-center gap-2 px-3 py-2 border rounded-xl bg-white"
+            style={{ borderColor: c.outlineVariant }}
+          >
+            <Search size={16} style={{ color: c.onSurfaceVariant }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search projects by name or location..."
+              className="w-full text-[13px] outline-none bg-transparent"
+              style={{ color: c.onSurface }}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div
+              className="flex items-center gap-2 px-3 py-2 border rounded-xl bg-white"
+              style={{ borderColor: c.outlineVariant }}
+            >
+              <Filter size={14} style={{ color: c.onSurfaceVariant }} />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="text-[13px] font-semibold outline-none bg-transparent cursor-pointer"
+                style={{ color: c.onSurface }}
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              className="flex items-center gap-2 px-3 py-2 border rounded-xl bg-white"
+              style={{ borderColor: c.outlineVariant }}
+            >
+              <Building size={14} style={{ color: c.onSurfaceVariant }} />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="text-[13px] font-semibold outline-none bg-transparent cursor-pointer"
+                style={{ color: c.onSurface }}
+              >
+                {TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -595,135 +883,122 @@ export default function Projects() {
           />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <ProjectCard
-            imageUrl="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop"
-            badgeLabel="Commercial / Mix-Use"
-            badgeColor={c.primary}
-            title="The Atrium Plaza"
-            location="Downtown Financial District, Sector 4"
-            completion="Oct 2025"
-            milestonePercent={68}
-            accent={c.primary}
-            steps={[
-              { status: "done", label: "Foundation & Substructure", sub: "Completed on Mar 12" },
-              { status: "active", label: "External Facade Installation", sub: "45%" },
-              { status: "pending", label: "Interior Fit-out" },
-            ]}
-            budgetSpent="$142.8M"
-            budgetTotal="$185M"
-            budgetVarianceLabel="-2.4% Under Budget"
-            budgetVarianceColor="#16a34a"
-            budgetFillPercent={77}
-            inventoryValue="84 / 112 Units"
-            inventorySub="75% Pre-sold"
-            inventorySubColor="#16a34a"
-            yieldValue="12.4%"
-            yieldSub="Target 11.5%"
-            yieldSubColor={c.primary}
-            avatars={[
-              "https://i.pravatar.cc/100?img=11",
-              "https://i.pravatar.cc/100?img=12",
-            ]}
-            onOpenLedger={() => openLedger("The Atrium Plaza")}
-          />
+        {filteredProjects.length === 0 ? (
+          <div
+            className="mb-6 p-10 text-center rounded-[14px] border bg-white text-sm"
+            style={{ borderColor: c.outlineVariant, color: c.onSurfaceVariant }}
+          >
+            No projects match your current filters.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {filteredProjects.map((p) => (
+              <ProjectCard
+                key={p.id}
+                imageUrl={p.imageUrl}
+                badgeLabel={p.badgeLabel}
+                badgeColor={p.badgeColor}
+                title={p.title}
+                location={p.location}
+                completion={p.completion}
+                milestonePercent={p.milestonePercent}
+                accent={p.accent}
+                steps={p.steps}
+                budgetSpent={fmtCompact(p.budgetSpentNumber)}
+                budgetTotal={fmtCompact(p.budgetTotalNumber)}
+                budgetVarianceLabel={p.budgetVarianceLabel}
+                budgetVarianceColor={p.budgetVarianceColor}
+                budgetFillPercent={p.budgetFillPercent}
+                budgetOverPercent={p.budgetOverPercent}
+                inventoryValue={`${p.unitsFilled} / ${p.unitsTotal} Units`}
+                inventorySub={p.inventorySub}
+                inventorySubColor={p.inventorySubColor}
+                yieldValue={p.yieldValue}
+                yieldSub={p.yieldSub}
+                yieldSubColor={p.yieldSubColor}
+                avatars={p.avatars}
+                onOpenLedger={() => openLedger(p.title)}
+              />
+            ))}
+          </div>
+        )}
 
-          <ProjectCard
-            imageUrl="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2000&auto=format&fit=crop"
-            badgeLabel="Residential / Luxury"
-            badgeColor={c.tertiaryContainer}
-            title="Horizon Heights"
-            location="North Bay Marina District"
-            completion="Jan 2026"
-            milestonePercent={32}
-            accent={c.secondary}
-            steps={[
-              { status: "done", label: "Permitting & Land Clearing", sub: "Completed on Dec 20" },
-              { status: "active", label: "Structural Superstructure", sub: "15%" },
-              { status: "pending", label: "MEP Rough-in" },
-            ]}
-            budgetSpent="$38.2M"
-            budgetTotal="$210M"
-            budgetVarianceLabel="+5.8% Variance"
-            budgetVarianceColor={c.error}
-            budgetFillPercent={18}
-            budgetOverPercent={5}
-            inventoryValue="112 / 240 Units"
-            inventorySub="46% Pre-sold"
-            inventorySubColor={c.primary}
-            yieldValue="18.2%"
-            yieldSub="Market Surge"
-            yieldSubColor="#16a34a"
-            avatars={[
-              "https://i.pravatar.cc/100?img=33",
-              "https://i.pravatar.cc/100?img=47",
-            ]}
-            onOpenLedger={() => openLedger("Horizon Heights")}
-          />
+        {/* All Projects table: sortable columns + shares search/filter state above */}
+        <div
+          className="mt-6 bg-white rounded-[14px] border p-6"
+          style={{
+            borderColor: c.outlineVariant,
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)",
+          }}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold" style={{ ...displayFont, color: c.onSurface }}>
+              All Projects
+            </h3>
+            <span className="text-[13px] font-medium" style={{ color: c.onSurfaceVariant }}>
+              {sortedProjects.length} of {projectsData.length}
+            </span>
+          </div>
 
-          <ProjectCard
-            imageUrl="https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=2070&auto=format&fit=crop"
-            badgeLabel="Residential / Single-Family"
-            badgeColor={c.secondaryContainer}
-            title="Oakwood Estates"
-            location="Oakwood Township, Lakeview Corridor"
-            completion="May 2026"
-            milestonePercent={74}
-            accent={c.secondaryContainer}
-            steps={[
-              { status: "done", label: "Roads & Utility Infrastructure", sub: "Completed on Aug 19" },
-              { status: "active", label: "Phase 1 Home Construction", sub: "60%" },
-              { status: "pending", label: "Landscaping & Amenities" },
-            ]}
-            budgetSpent="$71.4M"
-            budgetTotal="$96M"
-            budgetVarianceLabel="-1.1% Under Budget"
-            budgetVarianceColor="#16a34a"
-            budgetFillPercent={74}
-            inventoryValue="17 / 24 Lots"
-            inventorySub="71% Pre-sold"
-            inventorySubColor="#16a34a"
-            yieldValue="10.8%"
-            yieldSub="Target 10.0%"
-            yieldSubColor={c.secondaryContainer}
-            avatars={[
-              "https://i.pravatar.cc/100?img=15",
-              "https://i.pravatar.cc/100?img=25",
-            ]}
-            onOpenLedger={() => openLedger("Oakwood Estates")}
-          />
-
-          <ProjectCard
-            imageUrl="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
-            badgeLabel="Residential / Luxury Estate"
-            badgeColor={c.tertiaryContainer}
-            title="Wellington Estate"
-            location="Wellington Hills, Private Enclave"
-            completion="Apr 2027"
-            milestonePercent={17}
-            accent={c.error}
-            steps={[
-              { status: "done", label: "Land Acquisition & Entitlements", sub: "Completed on Mar 5" },
-              { status: "active", label: "Site Prep & Foundation", sub: "20%" },
-              { status: "pending", label: "Gatehouse & Clubhouse Build" },
-            ]}
-            budgetSpent="$24.6M"
-            budgetTotal="$142M"
-            budgetVarianceLabel="On Budget"
-            budgetVarianceColor="#16a34a"
-            budgetFillPercent={17}
-            inventoryValue="4 / 18 Lots"
-            inventorySub="22% Reserved"
-            inventorySubColor={c.primary}
-            yieldValue="21.5%"
-            yieldSub="Ultra-Luxury Tier"
-            yieldSubColor="#16a34a"
-            avatars={[
-              "https://i.pravatar.cc/100?img=52",
-              "https://i.pravatar.cc/100?img=60",
-            ]}
-            onOpenLedger={() => openLedger("Wellington Estate")}
-          />
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm border-collapse">
+              <thead>
+                <tr className="border-b" style={{ borderColor: c.outlineVariant }}>
+                  <SortableHeader label="Project Name" sortKey="name" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Units" sortKey="units" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} align="right" />
+                  <SortableHeader label="Value" sortKey="value" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} align="right" />
+                  <SortableHeader label="Progress" sortKey="progress" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} align="right" />
+                  <th className="py-2 pr-3 text-left font-bold" style={{ color: c.onSurfaceVariant }}>Status</th>
+                  <th className="py-2 pr-3 text-left font-bold" style={{ color: c.onSurfaceVariant }}>Type</th>
+                  <th className="py-2 pr-3 text-right font-bold" style={{ color: c.onSurfaceVariant }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProjects.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center" style={{ color: c.onSurfaceVariant }}>
+                      No projects match your current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedProjects.map((p) => (
+                    <tr key={p.id} className="border-b" style={{ borderColor: c.surfaceContainer }}>
+                      <td className="py-3 pr-3 font-semibold">{p.title}</td>
+                      <td className="py-3 pr-3 text-right">{p.unitsFilled} / {p.unitsTotal}</td>
+                      <td className="py-3 pr-3 text-right">{fmtCompact(p.budgetTotalNumber)}</td>
+                      <td className="py-3 pr-3 text-right">
+                        <span className="font-bold" style={{ color: p.accent }}>
+                          {p.milestonePercent}%
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className="text-[11px] font-bold px-2 py-1 rounded-full"
+                          style={{
+                            background: p.status === "Ready to Move" ? "#f0fdf4" : c.primaryFixed,
+                            color: p.status === "Ready to Move" ? "#16a34a" : c.primary,
+                          }}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3" style={{ color: c.onSurfaceVariant }}>{p.type}</td>
+                      <td className="py-3 pr-3 text-right">
+                        <button
+                          onClick={() => openLedger(p.title)}
+                          className="font-bold text-[13px] hover:underline inline-flex items-center gap-1"
+                          style={{ color: c.primary }}
+                        >
+                          View Full Project
+                          <ArrowRight size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Secondary Section: Risk and Resource Overview */}
