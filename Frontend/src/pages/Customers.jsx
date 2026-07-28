@@ -165,7 +165,7 @@ const EXTRA_CUSTOMERS = Array.from({ length: 37 }).map((_, i) => ({
 const INITIAL_CUSTOMERS = [...BASE_CUSTOMERS, ...EXTRA_CUSTOMERS];
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("en-US");
-const uid = () => "CUST-" + Math.floor(90000 + Math.random() * 9999);
+const uid = () => "CUST-" + Math.floor(10000 + Math.random() * 90000);
 
 // Icons
 function Icon({ name, className = "", filled = false, style = {} }) {
@@ -225,7 +225,6 @@ function Field({ label, children }) {
 const inputCls = "w-full rounded-xl text-sm px-3 py-2 outline-none focus:ring-2";
 const inputStyle = { background: COLORS.surfaceContainerLow, border: `1px solid ${COLORS.outlineVariant}` };
 
-
 function CustomerFormModal({ initial, onClose, onSave }) {
   const [form, setForm] = useState(
     initial || { name: "", email: "", project: "Skyline Residences", units: "01", collectionValue: "", status: "Interested", phone: "", avatar: "" }
@@ -251,11 +250,9 @@ function CustomerFormModal({ initial, onClose, onSave }) {
         <Field label="Full Name"><input className={inputCls} style={inputStyle} value={form.name} onChange={set("name")} placeholder="e.g. John Doe" /></Field>
         <Field label="Email"><input className={inputCls} style={inputStyle} value={form.email} onChange={set("email")} placeholder="e.g. john@email.com" /></Field>
         <Field label="Phone Number"><input className={inputCls} style={inputStyle} value={form.phone} onChange={set("phone")} placeholder="+1 (000) 000-0000" /></Field>
-        
         <Field label="Profile Photo URL (Optional)">
           <input className={inputCls} style={inputStyle} value={form.avatar} onChange={set("avatar")} placeholder="https://example.com/photo.jpg" />
         </Field>
-
         <Field label="Active Project">
           <select className={inputCls} style={inputStyle} value={form.project} onChange={set("project")}>
             {["Skyline Residences", "Emerald Gardens", "Oakwood Heights"].map((p) => <option key={p}>{p}</option>)}
@@ -274,7 +271,7 @@ function CustomerFormModal({ initial, onClose, onSave }) {
 }
 
 function ProfileEditModal({ customer, onClose, onSave }) {
-  const [form, setForm] = useState({ phone: customer.phone, email: customer.email, address: customer.address, occupation: customer.occupation, company: customer.company });
+  const [form, setForm] = useState({ phone: customer.phone || "", email: customer.email || "", address: customer.address || "", occupation: customer.occupation || "", company: customer.company || "" });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
@@ -351,7 +348,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
   const [page, setPage] = useState(1);
   const pageSize = 4; 
 
-  // TABLE SORTING STATE
   const [sortConfig, setSortConfig] = useState({ field: null, direction: 'asc' });
 
   const inValueRange = (val, range) => {
@@ -419,11 +415,17 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
     addToast(`Filters applied — ${filteredAndSorted.length} matches found`, "filter_alt");
   };
 
-  const handleDeleteOne = (id) => {
+  const handleDeleteOne = async (id) => {
     setCustomers((prev) => prev.filter((c) => c.id !== id));
     setSelectedIds((prev) => prev.filter((x) => x !== id));
-    addToast("Customer deleted", "delete");
     setOpenMenuId(null);
+    try {
+      await axios.delete(`https://realityone-epr.onrender.com/api/customers/delete/${id}`);
+      addToast("Customer deleted from database", "delete");
+    } catch(error) {
+      console.error(error);
+      addToast("Failed to delete from DB", "error");
+    }
   };
 
   const handleAddCustomer = async (form) => {
@@ -431,7 +433,7 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
       ? form.avatar 
       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.name)}&backgroundColor=012c7e`;
 
-  const newCustomer = {
+    const newCustomer = {
       customer_id: uid(), 
       name: form.name,
       email: form.email,
@@ -444,24 +446,53 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
     };
 
     try {
-        await axios.post("https://realityone-epr.onrender.com/api/customers/create", newCustomer);
-                setCustomers((prev) => [newCustomer, ...prev]);
-        setShowAddModal(false);
-        addToast(`${form.name} added successfully`, "person_add");
+      await axios.post("https://realityone-epr.onrender.com/api/customers/create", newCustomer);
+      
+      const uiCustomer = {
+        ...newCustomer,
+        id: newCustomer.customer_id,
+        lastActivity: "Just now",
+        activity: [],
+        documents: [],
+        payments: []
+      };
+
+      setCustomers((prev) => [uiCustomer, ...prev]);
+      setShowAddModal(false);
+      addToast(`${form.name} saved to database`, "person_add");
     } catch (error) {
-        addToast("Error saving to database!", "error");
-        console.error("API Error:", error);
+      addToast("Error saving to database!", "error");
+      console.error("API Error:", error);
     }
   };
 
-  const handleEditCustomer = (form) => {
+  const handleEditCustomer = async (form) => {
     const finalAvatar = form.avatar && form.avatar.trim() !== "" 
       ? form.avatar 
       : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(form.name)}&backgroundColor=012c7e`;
 
+    const updatedData = {
+      customer_id: editTarget.id,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      avatar: finalAvatar,
+      project: form.project,
+      units: form.units,
+      collectionValue: Number(form.collectionValue) || 0,
+      status: form.status
+    };
+
     setCustomers((prev) => prev.map((c) => (c.id === editTarget.id ? { ...c, ...form, avatar: finalAvatar, collectionValue: Number(form.collectionValue) || 0 } : c)));
-    setEditTarget(null);
-    addToast("Customer updated", "edit");
+    
+    try {
+      await axios.put("https://realityone-epr.onrender.com/api/customers/update", updatedData);
+      setEditTarget(null);
+      addToast("Customer Profile updated in DB", "edit");
+    } catch(error) {
+      console.error(error);
+      addToast("Failed to update Database", "error");
+    }
   };
 
   return (
@@ -525,7 +556,6 @@ function CustomerDatabase({ customers, setCustomers, onOpenCustomer, addToast })
                 <tr style={{ background: COLORS.surfaceContainerLow, borderBottom: `1px solid ${COLORS.outlineVariant}` }}>
                   <th className="py-4 pl-6 pr-3 w-12"><input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded cursor-pointer" /></th>
                   
-                  {/* SORTABLE HEADERS */}
                   <th onClick={() => handleSort('name')} className="py-4 px-3 text-[12px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 select-none" style={{ color: COLORS.onSurfaceVariant }}>
                     <div className="flex items-center gap-1">Customer Name <Icon name="unfold_more" className="!text-[14px]" /></div>
                   </th>
@@ -821,10 +851,29 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
         <ProfileEditModal
           customer={customer}
           onClose={() => setShowEdit(false)}
-          onSave={(form) => {
+          onSave={async (form) => {
+            const updatedData = {
+              customer_id: customer.id,
+              name: customer.name,
+              email: form.email,
+              phone: form.phone,
+              avatar: customer.avatar,
+              project: customer.project,
+              units: customer.units,
+              collectionValue: customer.collectionValue,
+              status: customer.status
+            };
+
             onUpdateCustomer(customer.id, form);
             setShowEdit(false);
-            addToast("Personal details updated", "check_circle");
+
+            try {
+              await axios.put("https://realityone-epr.onrender.com/api/customers/update", updatedData);
+              addToast("Personal details updated in DB", "check_circle");
+            } catch (error) {
+              console.error(error);
+              addToast("Failed to sync personal details to DB", "error");
+            }
           }}
         />
       )}
@@ -834,7 +883,10 @@ function CustomerProfile({ customer, onUpdateCustomer, onBack, addToast }) {
 
 export default function RealtyOneCRM() {
   const [view, setView] = useState("database");
+  
+  // FIXED: App start hote hi pehle se data dikhega taaki screen khali na lage!
   const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
+  
   const [selectedId, setSelectedId] = useState(null);
   const [toasts, setToasts] = useState([]);
   const toastTimer = useRef(0);
@@ -844,6 +896,44 @@ export default function RealtyOneCRM() {
     setToasts((prev) => [...prev, { id, message, icon }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3200);
   };
+
+  // BACKEND INTEGRATION: PAGE LOAD HOTE HI DATABASE CHECK KAREGA
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCustomers = async () => {
+      try {
+        const response = await axios.get("https://realityone-epr.onrender.com/api/customers/all");
+        if (isMounted && response.data.success) {
+          const dbCustomers = response.data.data.map(c => ({
+            id: c.customer_id, 
+            name: c.name,
+            email: c.email,
+            phone: c.phone || "—",
+            avatar: c.avatar,
+            project: c.project,
+            units: c.units,
+            collectionValue: Number(c.collectionValue),
+            status: c.status,
+            lastActivity: "Just now",
+            activity: [], 
+            documents: [
+              { icon: "badge", name: "PAN Card", meta: "Verified • PDF" },
+              { icon: "fingerprint", name: "National ID", meta: "[Aadhaar Redacted] • JPG" }
+            ], 
+            payments: [] 
+          }));
+          
+          if (dbCustomers.length > 0) {
+            setCustomers([...dbCustomers, ...INITIAL_CUSTOMERS]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching customers:", error);
+      }
+    };
+    fetchCustomers();
+    return () => { isMounted = false; };
+  }, []);
 
   const selectedCustomer = customers.find((c) => c.id === selectedId) || customers[0];
 

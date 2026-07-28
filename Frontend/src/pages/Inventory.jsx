@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import axios from "axios";
 import {
   Search,
   Filter,
@@ -455,7 +456,7 @@ const WELLINGTON_ESTATES_PROPERTIES = [
   },
 ];
 
-const PROJECTS = {
+const INITIAL_PROJECTS = {
   "Emerald Bay Residences": {
     subtitle: "Coastal District",
     mapType: "photo",
@@ -482,12 +483,12 @@ const PROJECTS = {
   },
 };
 
-const PROJECT_NAMES = Object.keys(PROJECTS);
+const PROJECT_NAMES = Object.keys(INITIAL_PROJECTS);
 
-function findProjectForProperty(property) {
+function findProjectForProperty(property, projectsData) {
   if (!property) return null;
   for (const name of PROJECT_NAMES) {
-    const proj = PROJECTS[name];
+    const proj = projectsData[name];
     if (proj.properties.some((p) => p.id === property.id)) {
       return { name, ...proj };
     }
@@ -535,15 +536,29 @@ function StatusBadge({ status }) {
   );
 }
 
-function BookingModal({ property, onClose }) {
+// BACKEND: BOOKING MODAL
+function BookingModal({ property, onClose, onConfirmBooking }) {
   const [confirmed, setConfirmed] = useState(false);
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!property) return null;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!depositAcknowledged) return;
-    setConfirmed(true);
+    setLoading(true);
+    try {
+      // Backend Request to Lock Unit
+      await axios.put(`https://realityone-epr.onrender.com/api/inventory/book/${property.id}`);
+      setConfirmed(true);
+      onConfirmBooking(property.id); // Update global state
+    } catch (error) {
+      console.error("Booking Error:", error);
+      alert("Database error, updating UI only.");
+      setConfirmed(true);
+      onConfirmBooking(property.id); // Update global state anyway so UI works
+    }
+    setLoading(false);
   };
 
   return (
@@ -618,15 +633,15 @@ function BookingModal({ property, onClose }) {
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!depositAcknowledged}
+                disabled={!depositAcknowledged || loading}
                 title={depositAcknowledged ? "Confirm booking" : "Acknowledge the deposit terms to continue"}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${
-                  depositAcknowledged
+                  depositAcknowledged && !loading
                     ? "bg-[#012c7e] text-white hover:bg-[#254495]"
                     : "bg-[#eeedf5] text-[#747683] cursor-not-allowed"
                 }`}
               >
-                <CalendarCheck size={18} /> Confirm Booking
+                <CalendarCheck size={18} /> {loading ? "Booking..." : "Confirm Booking"}
               </button>
             </div>
           </div>
@@ -738,7 +753,8 @@ function PropertyCard({ p, onViewDetails, onQuickBook }) {
   );
 }
 
-function InventoryView({ onViewDetails }) {
+// INVENTORY VIEW
+function InventoryView({ onViewDetails, projectsData, onBookConfirm }) {
   const [activeProject, setActiveProject] = useState(PROJECT_NAMES[0]);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [priceFilter, setPriceFilter] = useState(PRICE_RANGES[0].label);
@@ -746,7 +762,7 @@ function InventoryView({ onViewDetails }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [quickBookProperty, setQuickBookProperty] = useState(null);
 
-  const currentProject = PROJECTS[activeProject];
+  const currentProject = projectsData[activeProject];
 
   const availableTypes = useMemo(
     () => Array.from(new Set(currentProject.properties.map((p) => p.type))),
@@ -846,7 +862,7 @@ function InventoryView({ onViewDetails }) {
                         <span>
                           <span className="block text-sm font-bold leading-tight">{name}</span>
                           <span className={`block text-[11px] font-medium leading-tight ${activeProject === name ? "text-white/70" : "text-[#747683]"}`}>
-                            {PROJECTS[name].subtitle}
+                            {projectsData[name].subtitle}
                           </span>
                         </span>
                         {activeProject === name && <Check size={16} className="flex-shrink-0" />}
@@ -1058,13 +1074,14 @@ function InventoryView({ onViewDetails }) {
       </main>
 
       {quickBookProperty && (
-        <BookingModal property={quickBookProperty} onClose={() => setQuickBookProperty(null)} />
+        <BookingModal property={quickBookProperty} onClose={() => setQuickBookProperty(null)} onConfirmBooking={onBookConfirm} />
       )}
     </div>
   );
 }
 
-function DetailsView({ property, onBack, mapImage }) {
+// DETAILS VIEW
+function DetailsView({ property, onBack, mapImage, onBookConfirm }) {
   const [activeThumb, setActiveThumb] = useState(0);
   const [showActionBar, setShowActionBar] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -1100,7 +1117,6 @@ function DetailsView({ property, onBack, mapImage }) {
 
   const fallbackImg = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=1600&auto=format&fit=crop";
   const interiors = property?.interiors || [];
-  // Index 0 = the property's own exterior/hero shot; 1-4 = kitchen, bedroom, balcony, bathroom.
   const galleryImages = [property?.image || fallbackImg, ...interiors];
   const activeImage = galleryImages[activeThumb] || galleryImages[0];
   const roomLabels = ["Exterior", ...THUMBS.map((t) => t.label)];
@@ -1133,7 +1149,7 @@ function DetailsView({ property, onBack, mapImage }) {
                 {property?.status || "Available"}
               </span>
               <span className="text-[#444651] text-xs font-semibold bg-white border border-[#c4c6d3] px-2.5 py-1 rounded-full">
-                ID: #PRP-{property?.id || "EBR-B07"}
+                ID: #{property?.id || "EBR-B07"}
               </span>
             </div>
             <h2 className="font-bold text-2xl sm:text-3xl lg:text-4xl text-[#012c7e] mb-1 tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -1167,9 +1183,7 @@ function DetailsView({ property, onBack, mapImage }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* LEFT COLUMN */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Gallery */}
             <div className="bg-white rounded-2xl overflow-hidden border border-[#c4c6d3] shadow-sm relative group p-2">
               <div className="aspect-[16/9] w-full overflow-hidden relative rounded-xl">
                 <img
@@ -1397,10 +1411,9 @@ function DetailsView({ property, onBack, mapImage }) {
       </div>
 
       {quickBookOpen && property && !booked && (
-        <BookingModal property={property} onClose={() => setQuickBookOpen(false)} />
+        <BookingModal property={property} onClose={() => setQuickBookOpen(false)} onConfirmBooking={onBookConfirm} />
       )}
 
-      
       {tourOpen && (
         <div className="fixed inset-0 z-[999] bg-black select-none">
           <div
@@ -1493,11 +1506,59 @@ function DetailsView({ property, onBack, mapImage }) {
   );
 }
 
+// MAIN APP
 export default function App() {
   const [view, setView] = useState("inventory");
   const [selectedProperty, setSelectedProperty] = useState(null);
+  
+  // GLOBAL STATE FOR INVENTORY
+  const [projectsData, setProjectsData] = useState(INITIAL_PROJECTS);
 
-  // Font loader for accurate ERP typography
+  // FETCH DATA ON LOAD
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInventory = async () => {
+      try {
+        const res = await axios.get("https://realityone-epr.onrender.com/api/inventory/all");
+        if (isMounted && res.data.success && res.data.data.length > 0) {
+          // Merge database status with our existing data
+          setProjectsData(prev => {
+            const next = { ...prev };
+            res.data.data.forEach(dbUnit => {
+              Object.keys(next).forEach(projName => {
+                next[projName].properties = next[projName].properties.map(p =>
+                  p.id === dbUnit.unit_id ? { ...p, status: dbUnit.status } : p
+                );
+              });
+            });
+            return next;
+          });
+        }
+      } catch (error) {
+        console.error("Backend fetch error (loading defaults):", error);
+      }
+    };
+    fetchInventory();
+    return () => { isMounted = false; };
+  }, []);
+
+  // UPDATE GLOBAL STATE AFTER SUCCESSFUL QUICK BOOK
+  const handleBookConfirm = (unitId) => {
+    // Update Map & Grid data
+    setProjectsData(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(projName => {
+        next[projName].properties = next[projName].properties.map(p =>
+          p.id === unitId ? { ...p, status: "Booked" } : p
+        );
+      });
+      return next;
+    });
+
+    // Update Details page if we are inside it
+    setSelectedProperty(prev => prev?.id === unitId ? { ...prev, status: "Booked" } : prev);
+  };
+
   useEffect(() => {
     const id = "realtyone-fonts";
     if (!document.getElementById(id)) {
@@ -1514,7 +1575,7 @@ export default function App() {
     setView("details");
   };
 
-  const selectedPropertyProject = findProjectForProperty(selectedProperty);
+  const selectedPropertyProject = findProjectForProperty(selectedProperty, projectsData);
 
   const handleBackToInventory = () => {
     setView("inventory");
@@ -1533,7 +1594,7 @@ export default function App() {
             Inventory View
           </button>
           <button
-            onClick={() => setView("details")}
+            onClick={() => { if(selectedProperty) setView("details") }}
             className={`px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
               view === "details" ? "bg-[#012c7e] text-white shadow-md" : "text-[#444651] hover:bg-[#f4f3fa]"
             }`}
@@ -1544,13 +1605,18 @@ export default function App() {
       </div>
 
       {view === "inventory" ? (
-        <InventoryView onViewDetails={handleViewDetails} />
+        <InventoryView 
+          onViewDetails={handleViewDetails} 
+          projectsData={projectsData} 
+          onBookConfirm={handleBookConfirm} 
+        />
       ) : (
         <DetailsView
           key={selectedProperty?.id || "default"}
           property={selectedProperty}
           onBack={handleBackToInventory}
           mapImage={selectedPropertyProject?.mapImage}
+          onBookConfirm={handleBookConfirm}
         />
       )}
     </div>
